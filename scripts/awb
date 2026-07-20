@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# scripts/awb — AI-Workbench CLI entrypoint.
+#
+# Usage:
+#   awb install                      Run the full installer
+#   awb doctor                       Run diagnostics
+#   awb detect                       Print hardware detection summary
+#   awb update                       Update AI-Workbench + installed components
+#   awb monitor                      Live resource snapshot (CPU/GPU/mem/temp)
+#   awb info                         Show version + hardware summary
+#   awb model install <name>         Install a model from the catalog
+#   awb model install custom <repo> <file>
+#   awb model list                   List the model catalog
+#   awb model remove <filename>      Remove a downloaded model
+#   awb model update                 Show installed models / update guidance
+#   awb runtime install <name>       Install a runtime (llama.cpp|ollama|openvino|onnxruntime|whisper)
+#   awb runtime update <name>
+#   awb runtime remove <name>
+#   awb benchmark <llm|whisper|vision|embeddings> [args...]
+set -euo pipefail
+
+AWB_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export AWB_ROOT
+
+# shellcheck source=lib/colors.sh
+source "${AWB_ROOT}/lib/colors.sh"
+# shellcheck source=lib/logger.sh
+source "${AWB_ROOT}/lib/logger.sh"
+# shellcheck source=lib/utils.sh
+source "${AWB_ROOT}/lib/utils.sh"
+# shellcheck source=lib/downloader.sh
+source "${AWB_ROOT}/lib/downloader.sh"
+
+load_env "${AWB_ROOT}/config.env" false
+
+_usage() {
+    sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+}
+
+_need_detection() {
+    # shellcheck disable=SC1091
+    source "${AWB_ROOT}/detect.sh" 2>/dev/null || true
+    run_all_detections
+    resolve_platform_target
+}
+
+cmd="${1:-}"; shift || true
+
+case "$cmd" in
+    install)
+        exec "${AWB_ROOT}/install.sh" "$@"
+        ;;
+    doctor)
+        exec "${AWB_ROOT}/doctor.sh" "$@"
+        ;;
+    detect)
+        exec "${AWB_ROOT}/detect.sh"
+        ;;
+    update)
+        exec "${AWB_ROOT}/update.sh" "$@"
+        ;;
+    monitor)
+        _need_detection
+        source "${AWB_ROOT}/monitoring/cpu.sh"
+        source "${AWB_ROOT}/monitoring/memory.sh"
+        source "${AWB_ROOT}/monitoring/gpu.sh"
+        source "${AWB_ROOT}/monitoring/temperature.sh"
+        monitor_cpu; echo; monitor_memory; echo; monitor_gpu; echo; monitor_temperature
+        ;;
+    info)
+        _need_detection
+        echo -e "${C_BOLD}AI-Workbench Core v1.0${C_RESET}"
+        source "${AWB_ROOT}/detect.sh" 2>/dev/null || true
+        print_summary
+        ;;
+    model)
+        source "${AWB_ROOT}/models/install.sh"
+        source "${AWB_ROOT}/models/update.sh"
+        sub="${1:-}"; shift || true
+        case "$sub" in
+            install) model_install "$@" ;;
+            list)    model_catalog_list ;;
+            remove)  model_remove "$@" ;;
+            update)  model_update_all ;;
+            *) log_error "Usage: awb model {install|list|remove|update}"; exit 1 ;;
+        esac
+        ;;
+    runtime)
+        _need_detection
+        sub="${1:-}"; rt="${2:-}"; shift 2 || true
+        [[ -f "${AWB_ROOT}/runtimes/${rt}/install.sh" ]] || { log_error "Unknown runtime: ${rt}"; exit 1; }
+        source "${AWB_ROOT}/runtimes/${rt}/install.sh"
+        case "$sub" in
+            install) "install_${rt//./_}" "$@" 2>/dev/null || "install_${rt}" "$@" ;;
+            update)  "update_${rt//./_}" "$@" 2>/dev/null || true ;;
+            remove)  "remove_${rt//./_}" "$@" 2>/dev/null || true ;;
+            *) log_error "Usage: awb runtime {install|update|remove} <name>"; exit 1 ;;
+        esac
+        ;;
+    benchmark)
+        _need_detection
+        target="${1:-}"; shift || true
+        [[ -f "${AWB_ROOT}/benchmarks/${target}/run.sh" ]] || { log_error "Unknown benchmark target: ${target}"; exit 1; }
+        source "${AWB_ROOT}/benchmarks/${target}/run.sh"
+        "benchmark_${target}" "$@"
+        ;;
+    -h|--help|help|"")
+        _usage
+        ;;
+    *)
+        log_error "Unknown command: $cmd"
+        _usage
+        exit 1
+        ;;
+esac
