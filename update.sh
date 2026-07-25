@@ -33,7 +33,8 @@ for arg in "$@"; do
 Usage: update.sh [--runtimes] [--models] [--all] [--no-self]
 
   (no args)    Update AI-Workbench itself only
-  --runtimes   Also update llama.cpp, whisper.cpp, Ollama
+  --runtimes   Also update llama.cpp, Ollama, OpenVINO, ONNX Runtime, whisper.cpp
+               (each gated by its INSTALL_* flag in config.env)
   --models     Show installed models / update guidance
   --all        Equivalent to --runtimes --models
   --no-self    Skip updating AI-Workbench itself
@@ -61,13 +62,20 @@ update_runtimes() {
     run_all_detections
     resolve_platform_target
 
-    safe_source "${AWB_ROOT}/runtimes/llama.cpp/install.sh"
-    update_llama_cpp
+    is_true "${INSTALL_LLAMACPP:-true}" \
+        && { safe_source "${AWB_ROOT}/runtimes/llama.cpp/install.sh"; update_llama_cpp; }
 
-    if has_cmd ollama; then
-        safe_source "${AWB_ROOT}/runtimes/ollama/install.sh"
-        update_ollama
-    fi
+    is_true "${INSTALL_OLLAMA:-true}" && has_cmd ollama \
+        && { safe_source "${AWB_ROOT}/runtimes/ollama/install.sh"; update_ollama; }
+
+    is_true "${INSTALL_OPENVINO:-true}" \
+        && { safe_source "${AWB_ROOT}/runtimes/openvino/install.sh"; update_openvino_runtime; }
+
+    is_true "${INSTALL_ONNXRUNTIME:-true}" \
+        && { safe_source "${AWB_ROOT}/runtimes/onnxruntime/install.sh"; update_onnxruntime; }
+
+    is_true "${INSTALL_WHISPER:-true}" \
+        && { safe_source "${AWB_ROOT}/runtimes/whisper/install.sh"; update_whisper_cpp; }
 }
 
 update_models() {

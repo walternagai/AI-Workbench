@@ -93,11 +93,13 @@ case "$cmd" in
         [[ "$rt" =~ ^[a-zA-Z0-9._-]+$ ]] || { log_error "Invalid runtime name: ${rt} (use only letters, digits, dots, hyphens, underscores)"; exit 1; }
         safe_source "${AWB_ROOT}/runtimes/${rt}/install.sh"
         case "$sub" in
-            install) "install_${rt//./_}" "$@" 2>/dev/null || "install_${rt}" "$@" ;;
-            update)  "update_${rt//./_}" "$@" 2>/dev/null || true ;;
-            remove)  "remove_${rt//./_}" "$@" 2>/dev/null || true ;;
+            install|update|remove) ;;
             *) log_error "Usage: awb runtime {install|update|remove} <name>"; exit 1 ;;
         esac
+        fn="${sub}_${rt//./_}"
+        declare -F "$fn" >/dev/null \
+            || fail_loud "Runtime '${rt}' does not implement '${sub}' (no ${fn}() function)."
+        "$fn" "$@"
         ;;
     benchmark)
         _need_detection

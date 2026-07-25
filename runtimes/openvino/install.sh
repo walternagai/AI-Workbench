@@ -18,3 +18,18 @@ install_openvino_runtime() {
 
     log_ok "OpenVINO GenAI runtime installed."
 }
+
+update_openvino_runtime() {
+    log_step "Updating OpenVINO GenAI runtime"
+
+    local venv="$HOME/venvs/openvino"
+    [[ -d "$venv" ]] || fail_loud "openvino venv missing; run install first."
+
+    # shellcheck disable=SC1091
+    source "$venv/bin/activate"
+    pip install --upgrade "openvino-genai>=2024.0" \
+        || fail_loud "Failed to update openvino-genai"
+    deactivate
+
+    log_ok "OpenVINO GenAI runtime updated."
+}

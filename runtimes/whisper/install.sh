@@ -37,3 +37,16 @@ install_whisper_cpp() {
 
     log_ok "whisper.cpp built and linked into ${AI_HOME:-$HOME/ai}/bin/"
 }
+
+update_whisper_cpp() {
+    log_step "Updating whisper.cpp"
+    [[ -d "$AWB_WHISPER_SRC" ]] || fail_loud "whisper.cpp not installed yet; run install first."
+    install_whisper_cpp
+}
+
+remove_whisper_cpp() {
+    log_step "Removing whisper.cpp"
+    rm -rf "$AWB_WHISPER_SRC"
+    rm -f "${AI_HOME:-$HOME/ai}/bin/whisper-cli"
+    log_ok "whisper.cpp removed."
+}
