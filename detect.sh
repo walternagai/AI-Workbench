@@ -98,7 +98,7 @@ detect_gpu() {
 # ---------------------------------------------------------------------------
 detect_npu() {
     export HAS_INTEL_NPU="false"
-    if [[ -e /dev/accel/accel0 ]] || ls /sys/class/accel 2>/dev/null | grep -q .; then
+    if [[ -e /dev/accel/accel0 ]] || compgen -G "/sys/class/accel/*" >/dev/null 2>&1; then
         export HAS_INTEL_NPU="true"
     fi
 }

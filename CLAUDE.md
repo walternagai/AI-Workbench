@@ -38,14 +38,29 @@ scripts/awb benchmark <llm|whisper|vision|embeddings> [args...]
 Python side (benchmark scripts only):
 
 ```bash
+pip install -r requirements-test.txt      # pytest/pytest-cov + the benchmark libs the tests import
 pytest                                    # runs tests/, pythonpath is repo root (see pyproject.toml)
 pytest tests/test_bench_embeddings.py -k test_normal   # single test
 pytest --cov                              # coverage over benchmarks/, fail_under = 80
 ```
 
-There is no separate lint command configured (no ruff/flake8/eslint config in
-the repo); shell scripts are annotated with `# shellcheck source=` hints for
-whoever runs shellcheck manually.
+Shell scripts are annotated with `# shellcheck source=` hints and linted in
+CI (`.github/workflows/ci.yml`) at `--severity=warning`; run the same check
+locally with:
+
+```bash
+shellcheck -x --severity=warning $(find . -name '*.sh' -not -path './.git/*') scripts/awb
+```
+
+Bash unit tests for the pure helpers in `lib/` (no hardware/network needed)
+live under `tests/bats/` and run with [bats-core](https://github.com/bats-core/bats-core):
+
+```bash
+bats tests/bats/
+```
+
+There is no separate Python lint command configured (no ruff/flake8 config in
+the repo).
 
 ## Architecture
 

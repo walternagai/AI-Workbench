@@ -1,0 +1,9 @@
+# Test-time dependencies for `pytest --cov` (tests/, benchmarks/).
+# Mirrors the packages `python/create_envs.sh` installs into the rag/vision
+# venvs at runtime, kept unpinned for the same reason: this project always
+# targets current releases rather than a frozen lockfile.
+pytest
+pytest-cov
+sentence-transformers
+onnxruntime
+numpy

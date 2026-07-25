@@ -118,8 +118,10 @@ confirm() {
 load_env() {
     local path="$1" required="${2:-false}"
     if [[ -f "$path" ]]; then
-        # shellcheck disable=SC1090
-        set -a; source "$path"; set +a
+        set -a
+        # shellcheck disable=SC1090,SC1091
+        source "$path"
+        set +a
     elif is_true "$required"; then
         fail_loud "Required environment file not found: $path"
     fi

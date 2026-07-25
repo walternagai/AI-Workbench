@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure ShellCheck is available
+        run: command -v shellcheck || { sudo apt-get update && sudo apt-get install -y shellcheck; }
+
+      - name: Lint all shell scripts
+        # --severity=warning: the codebase has a handful of pre-existing
+        # "info"-level style notes (SC2015 "A && B || C", SC2021 tr []
+        # classes, SC2317 trap-invoked "unreachable" code) that are
+        # reviewed, deliberate idioms rather than bugs. Warnings and
+        # errors still fail the build.
+        run: |
+          mapfile -t files < <(find . -name '*.sh' -not -path './.git/*' | sort)
+          files+=(scripts/awb)
+          shellcheck -x --severity=warning "${files[@]}"
+
+  python-tests:
+    name: pytest (benchmarks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install -r requirements-test.txt
+
+      - name: Run tests with coverage
+        run: pytest --cov
+
+  bats:
+    name: bats (lib/ unit tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure bats is available
+        run: command -v bats || { sudo apt-get update && sudo apt-get install -y bats; }
+
+      - name: Run bats tests
+        run: bats tests/bats/
