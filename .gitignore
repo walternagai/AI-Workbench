@@ -1,0 +1,20 @@
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Logs
+logs/*.log
+logs/*.log.*
+
+# Reports
+reports/*.json
+reports/*.md
+
+# Local model files (large blobs, never committed)
+ai/models/gguf/*
+ai/src/*
+ai/bin/*
+
+# OS metadata
+.DS_Store
+Thumbs.db
