@@ -3,8 +3,11 @@
 set -euo pipefail
 AWB_ROOT="${AWB_ROOT:?must be sourced from install.sh}"
 
+# Arguments after <audio> are forwarded verbatim to whisper-cli,
+# per `awb benchmark <target> [args...]`.
 benchmark_whisper() {
-    local audio_path="${1:?usage: benchmark_whisper <path-to-audio>}"
+    local audio_path="${1:?usage: benchmark_whisper <path-to-audio> [whisper-cli args...]}"
+    shift
     local bin="${AI_HOME:-$HOME/ai}/bin/whisper-cli"
     local model="${AI_HOME:-$HOME/ai}/models/whisper/ggml-base.en.bin"
 
@@ -17,7 +20,7 @@ benchmark_whisper() {
 
     local start end
     start=$(date +%s.%N)
-    "$bin" -f "$audio_path" -m "$model" > /tmp/awb_whisper_out.$$ 2>&1 \
+    "$bin" -f "$audio_path" -m "$model" "$@" > /tmp/awb_whisper_out.$$ 2>&1 \
         || fail_loud "whisper-cli execution failed"
     end=$(date +%s.%N)
 
