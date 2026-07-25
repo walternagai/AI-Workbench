@@ -58,7 +58,7 @@ idioms rather than bugs.
 - **`config.env`** — controls ALL optional behavior via `INSTALL_*` flags, read by `is_true()`.
 - **`lib/*.sh`** — shared libraries sourced by nearly every script: `logger.sh`, `utils.sh`, `colors.sh`, `downloader.sh`, `validation.sh`.
 - **`detect.sh`** — PCI-based hardware detection, exports `PLATFORM_TARGET`, `HAS_*_GPU`, `VRAM_GB`, etc. Many sections silently depend on it. Parses `/etc/os-release` with `awk` (never `source`s it).
-- **`doctor.sh`** — 100+ diagnostics, writes `reports/doctor.{json,md}`.
+- **`doctor.sh`** — 40+ diagnostics across nine categories (exact total varies by detected hardware; vendor checks are mutually exclusive), writes `reports/doctor.{json,md}`.
 - **Reports & logs** are gitignored: `reports/*.json`, `reports/*.md`, `logs/*.log`.
 
 ## Module contract

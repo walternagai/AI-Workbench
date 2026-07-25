@@ -19,7 +19,7 @@ is unit-tested with pytest.
 ./install.sh                          # full install
 ./install.sh --only <section>         # validate|system|detect|platform|python|runtimes|models|services|benchmark|report
 ./install.sh --skip <section>         # repeatable
-./doctor.sh                           # 100+ diagnostic checks -> reports/doctor.{json,md}
+./doctor.sh                           # 40+ diagnostic checks -> reports/doctor.{json,md}
 ./detect.sh                           # hardware detection summary -> reports/hardware.json
 ./update.sh                           # update framework + installed runtimes/models
 make install | make doctor | make detect | make update | make monitor | make info

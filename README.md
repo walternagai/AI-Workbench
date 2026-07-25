@@ -41,7 +41,7 @@ awb benchmark llm ~/ai/models/gguf/gemma-3n-E2B-it-Q8_0.gguf
 AI-Workbench/
 ├── install.sh        # orquestrador principal
 ├── update.sh          # atualização do framework e de runtimes/modelos
-├── doctor.sh          # 100+ verificações de diagnóstico
+├── doctor.sh          # 40+ verificações de diagnóstico
 ├── detect.sh          # detecção de hardware (fonte de verdade das variáveis)
 ├── config.env         # flags de instalação
 ├── Makefile           # atalhos (make install, make doctor, ...)
@@ -108,9 +108,11 @@ awb model install custom <hf_repo_id> <filename>
 
 ## Diagnóstico
 
-`doctor.sh` roda mais de 100 verificações organizadas por categoria (Sistema,
-Aceleração, Fabricante de GPU, Runtimes, Ambientes Python, Serviços, Recursos,
-Modelos) e grava `reports/doctor.json` + `reports/doctor.md`.
+`doctor.sh` roda mais de 40 verificações organizadas em nove categorias
+(Sistema, Aceleração, Fabricante de GPU, Runtimes, Ambientes Python, Serviços,
+Segurança, Recursos, Modelos) e grava `reports/doctor.json` +
+`reports/doctor.md`. O total exato varia conforme o hardware detectado, já que
+as checagens por fabricante são mutuamente exclusivas.
 
 ## Roadmap
 
