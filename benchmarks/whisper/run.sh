@@ -21,8 +21,10 @@ benchmark_whisper() {
         || fail_loud "whisper-cli execution failed"
     end=$(date +%s.%N)
 
+    # awk instead of bc (never installed by section_system_update; awk is
+    # already relied on unconditionally elsewhere in this repo).
     local elapsed
-    elapsed=$(echo "$end - $start" | bc)
+    elapsed=$(awk -v s="$start" -v e="$end" 'BEGIN { printf "%.3f", e - s }')
     log_ok "Transcription completed in ${elapsed}s"
     rm -f /tmp/awb_whisper_out.$$
 }
