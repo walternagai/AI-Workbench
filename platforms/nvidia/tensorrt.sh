@@ -11,6 +11,10 @@ install_nvidia_tensorrt() {
         return 0
     fi
 
+    # TensorRT is only distributed through NVIDIA's own apt repo, never
+    # Ubuntu's — never available without this (see repo.sh).
+    _ensure_nvidia_cuda_apt_repo || true
+
     sudo apt-get install -y tensorrt python3-libnvinfer-dev \
         || log_warn "TensorRT install failed; continuing without it (non-fatal)."
 

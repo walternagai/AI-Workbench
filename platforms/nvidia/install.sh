@@ -5,6 +5,8 @@ AWB_ROOT="${AWB_ROOT:?must be sourced from install.sh}"
 
 # shellcheck source=platforms/nvidia/cuda.sh
 source "${AWB_ROOT}/platforms/nvidia/cuda.sh"
+# shellcheck source=platforms/nvidia/repo.sh
+source "${AWB_ROOT}/platforms/nvidia/repo.sh"
 # shellcheck source=platforms/nvidia/cudnn.sh
 source "${AWB_ROOT}/platforms/nvidia/cudnn.sh"
 # shellcheck source=platforms/nvidia/tensorrt.sh
