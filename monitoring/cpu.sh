@@ -12,6 +12,11 @@ monitor_cpu() {
     if [[ -r /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq ]]; then
         local freq_khz
         freq_khz=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq)
-        printf '  Frequency (cpu0): %.2f GHz\n' "$(echo "$freq_khz / 1000000" | bc -l)"
+        # awk instead of bc: bc is never installed by section_system_update,
+        # so on a system without it this silently printed "0.00 GHz" (a
+        # plausible-looking but wrong number) rather than failing loudly.
+        # awk is already relied on unconditionally elsewhere in this repo
+        # (detect.sh, doctor.sh, the mpstat line above).
+        awk -v khz="$freq_khz" 'BEGIN { printf "  Frequency (cpu0): %.2f GHz\n", khz / 1000000 }'
     fi
 }
