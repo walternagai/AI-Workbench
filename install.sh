@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # install.sh — AI-Workbench Core v1.0 main installer.
 #
-# Flow (per docs/ARCHITECTURE.md):
+# Flow (per CLAUDE.md's Architecture section):
 #   validate OS -> update system -> detect hardware -> run platform module
 #   -> create Python envs -> install runtimes -> download default model
 #   -> run benchmark -> generate final report
