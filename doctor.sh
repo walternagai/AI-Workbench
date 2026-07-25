@@ -117,12 +117,33 @@ echo -e "\n${C_BOLD}GPU Vendors${C_RESET}"
 # Category: Runtimes
 # ---------------------------------------------------------------------------
 echo -e "\n${C_BOLD}Runtimes${C_RESET}"
-check_file "llama-server binary" "${AI_HOME:-$HOME/ai}/bin/llama-server"
-check_file "llama-cli binary" "${AI_HOME:-$HOME/ai}/bin/llama-cli"
-check_cmd "Ollama" ollama
-check_file "whisper-cli binary" "${AI_HOME:-$HOME/ai}/bin/whisper-cli"
-[[ -d "$HOME/venvs/openvino" ]] && check "OpenVINO venv" pass || check "OpenVINO venv" fail "run python/create_envs.sh"
-[[ -d "$HOME/venvs/vision" ]] && check "ONNX Runtime venv (vision)" pass || check "ONNX Runtime venv" fail "run python/create_envs.sh"
+if is_true "${INSTALL_LLAMACPP:-true}"; then
+    check_file "llama-server binary" "${AI_HOME:-$HOME/ai}/bin/llama-server"
+    check_file "llama-cli binary" "${AI_HOME:-$HOME/ai}/bin/llama-cli"
+else
+    check "llama-server binary" skip "INSTALL_LLAMACPP disabled in config.env"
+    check "llama-cli binary" skip "INSTALL_LLAMACPP disabled in config.env"
+fi
+if is_true "${INSTALL_OLLAMA:-true}"; then
+    check_cmd "Ollama" ollama
+else
+    check "Ollama" skip "INSTALL_OLLAMA disabled in config.env"
+fi
+if is_true "${INSTALL_WHISPER:-true}"; then
+    check_file "whisper-cli binary" "${AI_HOME:-$HOME/ai}/bin/whisper-cli"
+else
+    check "whisper-cli binary" skip "INSTALL_WHISPER disabled in config.env"
+fi
+if is_true "${INSTALL_OPENVINO:-true}"; then
+    [[ -d "$HOME/venvs/openvino" ]] && check "OpenVINO venv" pass || check "OpenVINO venv" fail "run python/create_envs.sh"
+else
+    check "OpenVINO venv" skip "INSTALL_OPENVINO disabled in config.env"
+fi
+if is_true "${INSTALL_ONNXRUNTIME:-true}"; then
+    [[ -d "$HOME/venvs/vision" ]] && check "ONNX Runtime venv (vision)" pass || check "ONNX Runtime venv" fail "run python/create_envs.sh"
+else
+    check "ONNX Runtime venv" skip "INSTALL_ONNXRUNTIME disabled in config.env"
+fi
 
 # ---------------------------------------------------------------------------
 # Category: Python environments
@@ -138,10 +159,19 @@ done
 echo -e "\n${C_BOLD}Services${C_RESET}"
 if has_cmd docker; then
     for svc in awb-open-webui awb-qdrant awb-chromadb awb-postgres; do
+        flag=""
+        case "$svc" in
+            awb-open-webui) flag="${INSTALL_OPENWEBUI:-true}" ;;
+            awb-qdrant)     flag="${INSTALL_QDRANT:-false}" ;;
+            awb-chromadb)   flag="${INSTALL_CHROMADB:-false}" ;;
+            awb-postgres)   flag="${INSTALL_POSTGRES:-false}" ;;
+        esac
         if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$svc"; then
             check "Service running: ${svc}" pass
+        elif is_true "$flag"; then
+            check "Service running: ${svc}" skip "enabled in config.env but not started"
         else
-            check "Service running: ${svc}" skip "not started (see config.env INSTALL_* flags)"
+            check "Service running: ${svc}" skip "disabled in config.env"
         fi
     done
 else
@@ -150,6 +180,27 @@ fi
 systemctl --user is-active --quiet llama-server 2>/dev/null \
     && check "llama-server systemd service" pass \
     || check "llama-server systemd service" skip "not enabled (systemctl --user enable --now llama-server)"
+
+# ---------------------------------------------------------------------------
+# Category: Security
+# ---------------------------------------------------------------------------
+echo -e "\n${C_BOLD}Security${C_RESET}"
+
+# check_secret <label> <enabled_flag> <value> — flags a secret/password left
+# at its committed config.env placeholder. Only meaningful for services that
+# are actually enabled; a disabled service's unused default isn't a risk.
+check_secret() {
+    local label="$1" enabled_flag="$2" value="$3"
+    if ! is_true "$enabled_flag"; then
+        check "$label" skip "service disabled in config.env"
+    elif [[ "$value" == "change-me" ]]; then
+        check "$label" fail "still the default 'change-me' — edit config.env before exposing this service"
+    else
+        check "$label" pass
+    fi
+}
+check_secret "Open WebUI secret key" "${INSTALL_OPENWEBUI:-true}" "${WEBUI_SECRET_KEY:-}"
+check_secret "Postgres password" "${INSTALL_POSTGRES:-false}" "${POSTGRES_PASSWORD:-}"
 
 # ---------------------------------------------------------------------------
 # Category: Resources
