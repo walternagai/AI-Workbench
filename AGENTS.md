@@ -71,7 +71,7 @@ idioms rather than bugs.
 - **`fail_loud`** is the one exit point for fatal errors in `lib/logger.sh`. Never call it from a subshell you expect to keep running.
 - **`doctor.sh`** deliberately uses `set -uo pipefail` (no `-e`) — a failed check must not kill the diagnosis.
 - **All other scripts** follow `set -euo pipefail`.
-- **Python venvs** live in `~/venvs/` (core, openvino, rag, vision, speech), not inside the repo.
+- **Python venvs** live in `~/venvs/` (core, openvino, rag, vision; `speech` is opt-in via `INSTALL_SPEECH_VENV` — it pulls torch and nothing in the repo consumes it), not inside the repo.
 - **`DEBIAN_FRONTEND=noninteractive`** is exported globally in `lib/utils.sh`.
 - **`load_env <path> true|false`** — second arg marks the file as required; omitting/calling with `false` silently skips missing file.
 - **`sudo_keepalive`** spawns a background process; always cleaned up via `EXIT`/`INT`/`TERM` traps in `install.sh`.

@@ -151,9 +151,16 @@ fi
 # Category: Python environments
 # ---------------------------------------------------------------------------
 echo -e "\n${C_BOLD}Python environments${C_RESET}"
-for env in core openvino rag vision speech; do
+for env in core openvino rag vision; do
     check_file "venv: ${env}" "$HOME/venvs/${env}/bin/activate"
 done
+# 'speech' is opt-in (see INSTALL_SPEECH_VENV in config.env) — checking it
+# unconditionally would report a failure for an env deliberately not created.
+if is_true "${INSTALL_SPEECH_VENV:-false}"; then
+    check_file "venv: speech" "$HOME/venvs/speech/bin/activate"
+else
+    check "venv: speech" skip "INSTALL_SPEECH_VENV disabled in config.env"
+fi
 
 # ---------------------------------------------------------------------------
 # Category: Services

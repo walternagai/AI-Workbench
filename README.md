@@ -49,7 +49,7 @@ AI-Workbench/
 ├── lib/                # logger, cores, utils, downloader, validação
 ├── platforms/          # intel/ amd/ nvidia/ cpu/ — instalação por fabricante
 ├── runtimes/           # llama.cpp/ ollama/ openvino/ onnxruntime/ whisper/
-├── python/             # criação dos venvs (core, openvino, rag, vision, speech)
+├── python/             # criação dos venvs (core, openvino, rag, vision; speech opcional)
 ├── models/             # Model Manager (catálogo GGUF + downloads via HF)
 ├── benchmarks/         # llm/ whisper/ vision/ embeddings/
 ├── monitoring/         # snapshots de cpu/gpu/memória/temperatura

@@ -57,11 +57,22 @@ create_all_envs() {
     _create_venv "vision" \
         pillow opencv-python-headless numpy
 
-    # speech — STT/TTS (Whisper and friends)
-    _create_venv "speech" \
-        openai-whisper soundfile
+    # speech — STT/TTS (Whisper and friends).
+    #
+    # Opt-in: openai-whisper drags in torch + triton + 4 nvidia CUDA runtime
+    # packages (~730MB of wheels before those), and nothing in AI-Workbench
+    # consumes this venv — the framework's speech path is whisper.cpp (a C++
+    # binary + GGML model, see runtimes/whisper and benchmarks/whisper). It's
+    # kept available for users who want the Python stack for fine-tuning or
+    # research, but is no longer part of the default install.
+    if is_true "${INSTALL_SPEECH_VENV:-false}"; then
+        _create_venv "speech" \
+            openai-whisper soundfile
+    else
+        log_info "Skipping 'speech' venv (INSTALL_SPEECH_VENV not enabled in config.env). AI-Workbench's speech path is whisper.cpp; enable this only if you want the Python openai-whisper stack."
+    fi
 
-    log_ok "All Python environments created under ${AWB_VENV_ROOT}"
+    log_ok "Python environments created under ${AWB_VENV_ROOT}"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

@@ -128,7 +128,8 @@ move that call inside a conditional (see docs/PRINCIPLES.md §2, a real bug
 class fixed in v1.0 QA).
 
 **Python side** (`python/create_envs.sh`, `benchmarks/`): creates separate
-venvs per concern (core, openvino, rag, vision, speech) under `~/venvs`.
+venvs per concern (core, openvino, rag, vision — plus speech, opt-in via
+`INSTALL_SPEECH_VENV`) under `~/venvs`.
 `benchmarks/<domain>/bench_*.py` scripts separate pure/testable logic
 (`parse_args`, `compute_stats`, `format_report`) from the GPU/model-loading
 side effects, which is why `tests/` can unit-test them without hardware.
