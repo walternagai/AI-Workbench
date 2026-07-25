@@ -76,6 +76,11 @@ model_install() {
 
 model_remove() {
     local filename="${1:?usage: model_remove <filename>}"
-    rm -f "${AWB_MODELS_DIR:?}/${filename}" && log_ok "Removed model: ${filename}" \
-        || log_warn "Model not found: ${filename}"
+    local path="${AWB_MODELS_DIR:?}/${filename}"
+    if [[ -f "$path" ]]; then
+        rm -f "$path" && log_ok "Removed model: ${filename}" \
+            || fail_loud "Failed to remove model: ${filename}"
+    else
+        log_warn "Model not found: ${filename}"
+    fi
 }
