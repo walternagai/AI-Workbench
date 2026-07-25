@@ -92,7 +92,7 @@ make install-runtimes
 | Intel      | Vulkan (Mesa ANV)                        | Arc, Iris Xe, Meteor Lake, Lunar Lake, Battlemage, Arrow Lake |
 | AMD        | Vulkan (Mesa RADV) + ROCm/HIP             | GPUs discretas AMD com suporte ROCm                |
 | NVIDIA     | CUDA + cuDNN (+ TensorRT opcional)        | GPUs discretas NVIDIA                              |
-| CPU        | OpenBLAS (+ oneDNN via wheels, MKL se Intel) | Sempre instalado, como fallback universal        |
+| CPU        | OpenBLAS (+ oneDNN via wheels)            | Sempre instalado, como fallback universal        |
 
 > Nota de design: em iGPUs Intel, o caminho de aceleração usado é Vulkan via
 > Mesa ANV. O caminho XPU/SYCL (vLLM/IPEX-LLM) não é instalado por padrão —
