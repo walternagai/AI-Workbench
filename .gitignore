@@ -22,3 +22,8 @@ ai/bin/*
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# eizo code-graph tool output (regenerated on demand, not part of AI-Workbench)
+.eizo/
+arch.mm
+diagram.mm
