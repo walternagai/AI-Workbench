@@ -17,6 +17,7 @@ ai/bin/*
 
 # pytest cache
 .pytest_cache/
+.coverage
 
 # OS metadata
 .DS_Store
