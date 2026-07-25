@@ -27,15 +27,29 @@ make benchmark TARGET=llm ARGS='path/to/model.gguf'
 ./install.sh --skip <section>
 ```
 
-## Testing (Python benchmarks only)
+## Testing
 
 ```bash
+# Python (benchmarks/) — requires requirements-test.txt (pytest, pytest-cov,
+# and the libs bench_embeddings.py/bench_onnx.py import at collection time)
+pip install -r requirements-test.txt
 pytest                              # pythonpath = repo root (pyproject.toml sets it)
 pytest --cov                        # coverage over benchmarks/, fail_under=80
 pytest tests/test_bench_*.py -k test_function  # single test
+
+# Bash — pure helpers in lib/ (no hardware/network needed), via bats-core
+bats tests/bats/
+
+# Shellcheck — same check CI runs, at --severity=warning (see notes below)
+shellcheck -x --severity=warning $(find . -name '*.sh' -not -path './.git/*') scripts/awb
 ```
 
-No lint/format/typecheck config in the repo (no ruff, flake8, eslint). Shell scripts use `# shellcheck source=` hints but no automated shellcheck.
+No Python lint/format/typecheck config in the repo (no ruff, flake8, mypy).
+Shell scripts are linted in CI (`.github/workflows/ci.yml`: shellcheck +
+pytest + bats, on every push/PR) at `--severity=warning` — a handful of
+pre-existing "info"-level style notes (SC2015 `A && B || C`, SC2021 `tr []`
+classes, SC2317 trap-invoked "unreachable" code) are reviewed, deliberate
+idioms rather than bugs.
 
 ## Architecture
 
