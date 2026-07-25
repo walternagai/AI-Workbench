@@ -11,7 +11,7 @@ install_amd_vulkan() {
         return 0
     fi
 
-    sudo apt-get update -y || fail_loud "apt-get update failed"
+    apt_update_once
     sudo apt-get install -y mesa-vulkan-drivers vulkan-tools libvulkan1 mesa-utils \
         || fail_loud "Failed to install Mesa/Vulkan packages"
 

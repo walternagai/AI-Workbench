@@ -16,7 +16,7 @@ install_cpu_mkl() {
     if [[ -d "$venv" ]]; then
         # shellcheck disable=SC1091
         source "$venv/bin/activate"
-        pip install --quiet mkl mkl-include \
+        pip install mkl mkl-include \
             || log_warn "pip install of mkl failed; continuing without it (non-fatal, OpenBLAS remains available)."
         deactivate
     else

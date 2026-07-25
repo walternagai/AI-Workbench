@@ -6,7 +6,7 @@ AWB_ROOT="${AWB_ROOT:?must be sourced from install.sh}"
 install_intel_gpu_tools() {
     log_step "Installing Intel GPU Tools"
 
-    sudo apt-get update -y || fail_loud "apt-get update failed"
+    apt_update_once
     sudo apt-get install -y intel-gpu-tools || fail_loud "Failed to install intel-gpu-tools"
 
     # The render group is required for unprivileged Vulkan/OpenCL access

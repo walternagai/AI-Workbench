@@ -9,7 +9,7 @@ install_nvidia_cuda() {
     if has_cmd nvidia-smi && nvidia-smi >/dev/null 2>&1; then
         log_ok "NVIDIA driver already functional ($(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1))."
     else
-        sudo apt-get update -y || fail_loud "apt-get update failed"
+        apt_update_once
         sudo ubuntu-drivers autoinstall \
             || fail_loud "ubuntu-drivers autoinstall failed. Install the NVIDIA driver manually and re-run."
         log_warn "NVIDIA driver installed. A REBOOT is required before CUDA can be used."

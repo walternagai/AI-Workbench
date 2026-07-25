@@ -38,8 +38,9 @@ _usage() {
 }
 
 _need_detection() {
-    # shellcheck disable=SC1091
-    source "${AWB_ROOT}/detect.sh" 2>/dev/null || true
+    safe_source "${AWB_ROOT}/detect.sh"
+    declare -F run_all_detections &>/dev/null || fail_loud "detect.sh loaded but run_all_detections() not found"
+    declare -F resolve_platform_target &>/dev/null || fail_loud "detect.sh loaded but resolve_platform_target() not found"
     run_all_detections
     resolve_platform_target
 }
@@ -61,21 +62,20 @@ case "$cmd" in
         ;;
     monitor)
         _need_detection
-        source "${AWB_ROOT}/monitoring/cpu.sh"
-        source "${AWB_ROOT}/monitoring/memory.sh"
-        source "${AWB_ROOT}/monitoring/gpu.sh"
-        source "${AWB_ROOT}/monitoring/temperature.sh"
+        safe_source "${AWB_ROOT}/monitoring/cpu.sh"
+        safe_source "${AWB_ROOT}/monitoring/memory.sh"
+        safe_source "${AWB_ROOT}/monitoring/gpu.sh"
+        safe_source "${AWB_ROOT}/monitoring/temperature.sh"
         monitor_cpu; echo; monitor_memory; echo; monitor_gpu; echo; monitor_temperature
         ;;
     info)
         _need_detection
         echo -e "${C_BOLD}AI-Workbench Core v1.0${C_RESET}"
-        source "${AWB_ROOT}/detect.sh" 2>/dev/null || true
         print_summary
         ;;
     model)
-        source "${AWB_ROOT}/models/install.sh"
-        source "${AWB_ROOT}/models/update.sh"
+        safe_source "${AWB_ROOT}/models/install.sh"
+        safe_source "${AWB_ROOT}/models/update.sh"
         sub="${1:-}"; shift || true
         case "$sub" in
             install) model_install "$@" ;;
@@ -88,8 +88,10 @@ case "$cmd" in
     runtime)
         _need_detection
         sub="${1:-}"; rt="${2:-}"; shift 2 || true
-        [[ -f "${AWB_ROOT}/runtimes/${rt}/install.sh" ]] || { log_error "Unknown runtime: ${rt}"; exit 1; }
-        source "${AWB_ROOT}/runtimes/${rt}/install.sh"
+        # Security: validate runtime name to prevent path traversal
+        [[ -n "$rt" ]] || { log_error "Usage: awb runtime {install|update|remove} <name>"; exit 1; }
+        [[ "$rt" =~ ^[a-zA-Z0-9._-]+$ ]] || { log_error "Invalid runtime name: ${rt} (use only letters, digits, dots, hyphens, underscores)"; exit 1; }
+        safe_source "${AWB_ROOT}/runtimes/${rt}/install.sh"
         case "$sub" in
             install) "install_${rt//./_}" "$@" 2>/dev/null || "install_${rt}" "$@" ;;
             update)  "update_${rt//./_}" "$@" 2>/dev/null || true ;;
@@ -100,8 +102,9 @@ case "$cmd" in
     benchmark)
         _need_detection
         target="${1:-}"; shift || true
-        [[ -f "${AWB_ROOT}/benchmarks/${target}/run.sh" ]] || { log_error "Unknown benchmark target: ${target}"; exit 1; }
-        source "${AWB_ROOT}/benchmarks/${target}/run.sh"
+        [[ -n "$target" ]] || { log_error "Usage: awb benchmark <llm|whisper|vision|embeddings> [args...]"; exit 1; }
+        [[ "$target" =~ ^[a-z]+$ ]] || { log_error "Invalid benchmark target: ${target}"; exit 1; }
+        safe_source "${AWB_ROOT}/benchmarks/${target}/run.sh"
         "benchmark_${target}" "$@"
         ;;
     -h|--help|help|"")

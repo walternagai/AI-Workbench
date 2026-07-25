@@ -13,7 +13,7 @@ install_amd_rocm() {
 
     require_cmd wget "downloading the ROCm installer"
     local os_codename
-    os_codename="$(source /etc/os-release && echo "${VERSION_CODENAME:-jammy}")"
+    os_codename=$(awk -F= '/^VERSION_CODENAME=/ {gsub(/"/,"",$2); print $2; exit}' /etc/os-release 2>/dev/null) || os_codename="jammy"
 
     log_info "Adding ROCm apt repository for ${os_codename}..."
     wget -qO- https://repo.radeon.com/rocm/rocm.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/rocm.gpg \

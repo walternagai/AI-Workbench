@@ -4,6 +4,11 @@
 [[ -n "${AWB_UTILS_LOADED:-}" ]] && return 0
 AWB_UTILS_LOADED=1
 
+# Set non-interactive frontend for apt so package installs never prompt
+# (works for all scripts that source this library, from install.sh to
+# individual platform/runtime modules).
+export DEBIAN_FRONTEND=noninteractive
+
 # has_cmd <name> — true if a binary is on PATH.
 has_cmd() { command -v "$1" >/dev/null 2>&1; }
 
@@ -58,22 +63,53 @@ retry() {
 }
 
 # sudo_keepalive — keep sudo's timestamp fresh for the duration of a long
-# install so the user isn't prompted mid-flow. Cleans itself up on exit.
+# install so the user isn't prompted mid-flow. Cleans itself up on exit
+# (via EXIT, INT and TERM traps so no background processes are left behind).
+#
+# SIGKILL cannot be trapped, but the background process checks the parent
+# PID every 30 s via kill -0; if the parent has died it exits on its own
+# within that window.
 sudo_keepalive() {
     if [[ "${EUID}" -eq 0 ]]; then
         return 0  # already root, nothing to keep alive
     fi
     require_cmd sudo "system package installation"
     sudo -v || fail_loud "sudo authentication failed"
-    ( while true; do sudo -n true; sleep 60; kill -0 "$$" 2>/dev/null || exit; done ) &
+    # background loop: refresh sudo every 4 minutes (default timeout is 5);
+    # check parent liveness every 30 s to bound orphan lifetime.
+    (
+        while true; do
+            sudo -n true 2>/dev/null || exit
+            sleep 30
+            kill -0 "$$" 2>/dev/null || exit
+        done
+    ) &
     AWB_SUDO_KEEPALIVE_PID=$!
-    trap 'kill "$AWB_SUDO_KEEPALIVE_PID" 2>/dev/null || true' EXIT
+    _cleanup_sudo() {
+        kill "$AWB_SUDO_KEEPALIVE_PID" 2>/dev/null || true
+    }
+    trap '_cleanup_sudo' EXIT INT TERM
+}
+
+# apt_update_once — run apt-get update at most once per process tree,
+# so repeated calls from platform scripts don't hammer the network.
+# Uses a process-tree marker (AWB_APT_UPDATED) rather than a temp file.
+apt_update_once() {
+    if [[ -n "${AWB_APT_UPDATED:-}" ]]; then
+        return 0
+    fi
+    export AWB_APT_UPDATED=1
+    log_info "Updating package lists (once per run)..."
+    sudo apt-get update -y || fail_loud "apt-get update failed"
 }
 
 # confirm <prompt> — interactive yes/no, defaults to "no".
+# Uses printf %b to safely interpret colour escape sequences (replaces
+# non-portable echo -e).
 confirm() {
     local prompt="$1" reply
-    read -r -p "$(echo -e "${C_YELLOW}${prompt}${C_RESET} [y/N] ")" reply
+    printf '%b%s%b [y/N] ' "${C_YELLOW}" "$prompt" "${C_RESET}"
+    read -r reply
     [[ "$reply" =~ ^[Yy]$ ]]
 }
 
@@ -89,7 +125,31 @@ load_env() {
     fi
 }
 
+# safe_source <path> — source a script only if it exists; fail-loud if missing.
+# Eliminates silent failures when a required module is absent.
+safe_source() {
+    local path="$1"
+    if [[ -f "$path" ]]; then
+        # shellcheck disable=SC1090
+        source "$path"
+    else
+        fail_loud "Required module not found: $path"
+    fi
+}
+
 # json_kv <key> <value> — emit one "key": "value" JSON line (no trailing comma).
+# Escapes backslash, double-quote, newline, tab, carriage-return, and
+# control characters so the output is always valid JSON.
 json_kv() {
-    printf '  "%s": "%s"' "$1" "$2"
+    local key="$1" value="$2"
+    # Escape sequence: \ → \\, " → \", newline → \n, tab → \t, CR → \r
+    value="${value//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    value="${value//$'\n'/\\n}"
+    value="${value//$'\t'/\\t}"
+    value="${value//$'\r'/\\r}"
+    # Strip remaining control characters (0x00–0x1F except those already escaped).
+    # Uses printf instead of echo -n to avoid reinterpreting backslash sequences.
+    value="$(printf '%s' "$value" | tr -d '[\000-\010\013\014\016-\037]')"
+    printf '  "%s": "%s"' "$key" "$value"
 }

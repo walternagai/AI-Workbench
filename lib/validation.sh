@@ -11,9 +11,12 @@ AWB_SUPPORTED_DISTROS=("ubuntu" "pop" "linuxmint")
 # explicitly; anything else is refused rather than silently attempted.
 validate_os() {
     [[ -f /etc/os-release ]] || fail_loud "Cannot detect OS: /etc/os-release not found."
-    # shellcheck disable=SC1091
-    source /etc/os-release
-    local id="${ID:-unknown}" like="${ID_LIKE:-}"
+    # Parse /etc/os-release with awk instead of sourcing it,
+    # for the same security and isolation reasons as detect.sh.
+    local id like pretty
+    id=$(awk -F= '/^ID=/          {gsub(/"/,"",$2); print $2; exit}' /etc/os-release) || id="unknown"
+    like=$(awk -F= '/^ID_LIKE=/    {gsub(/"/,"",$2); print $2; exit}' /etc/os-release) || like=""
+    pretty=$(awk -F= '/^PRETTY_NAME=/ {gsub(/"/,"",$2); print $2; exit}' /etc/os-release) || pretty="$id"
     local supported=false
     for d in "${AWB_SUPPORTED_DISTROS[@]}"; do
         if [[ "$id" == "$d" || "$like" == *"$d"* || "$like" == *"debian"* || "$id" == "debian" ]]; then
@@ -22,10 +25,10 @@ validate_os() {
         fi
     done
     if [[ "$supported" != true ]]; then
-        fail_loud "Unsupported distribution: '${PRETTY_NAME:-$id}'. Supported: Ubuntu, Pop!_OS, Linux Mint."
+        fail_loud "Unsupported distribution: '${pretty}'. Supported: Ubuntu, Pop!_OS, Linux Mint."
     fi
     export AWB_OS_ID="$id"
-    export AWB_OS_PRETTY="${PRETTY_NAME:-$id}"
+    export AWB_OS_PRETTY="$pretty"
     log_ok "OS supported: ${AWB_OS_PRETTY}"
 }
 

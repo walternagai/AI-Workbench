@@ -6,7 +6,7 @@ AWB_ROOT="${AWB_ROOT:?must be sourced from install.sh}"
 install_intel_opencl() {
     log_step "Installing Intel OpenCL Runtime"
 
-    sudo apt-get update -y || fail_loud "apt-get update failed"
+    apt_update_once
     sudo apt-get install -y \
         intel-opencl-icd \
         clinfo \

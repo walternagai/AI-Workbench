@@ -12,7 +12,7 @@ install_openvino_runtime() {
 
     # shellcheck disable=SC1091
     source "$venv/bin/activate"
-    pip install --quiet "openvino-genai>=2024.0" \
+    pip install "openvino-genai>=2024.0" \
         || fail_loud "Failed to install openvino-genai"
     deactivate
 

@@ -13,8 +13,26 @@ AWB_LOGGER_LOADED=1
 AWB_ROOT="${AWB_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 AWB_LOG_DIR="${AWB_ROOT}/logs"
 AWB_LOG_FILE="${AWB_LOG_DIR}/installation.log"
+AWB_LOG_MAX_BYTES=$((10 * 1024 * 1024))  # 10 MB before rotation
+AWB_LOG_KEEP=3                           # keep 3 rotated backups
 
 mkdir -p "$AWB_LOG_DIR"
+
+# Rotate log if it exceeds the max size: keep up to N rotated copies,
+# discarding the oldest.  Inspired by logrotate's simple copy-truncate
+# but using mv+create so we never lose a line between copy and truncate.
+_log_rotate() {
+    local f
+    if [[ -f "$AWB_LOG_FILE" && "$(stat -c%s "$AWB_LOG_FILE" 2>/dev/null || echo 0)" -ge $AWB_LOG_MAX_BYTES ]]; then
+        # Shift old backups: N → N+1, then drop the last
+        for ((f = AWB_LOG_KEEP; f > 0; f--)); do
+            [[ -f "${AWB_LOG_FILE}.${f}" ]] && mv "${AWB_LOG_FILE}.${f}" "${AWB_LOG_FILE}.$((f + 1))" 2>/dev/null || true
+        done
+        mv "$AWB_LOG_FILE" "${AWB_LOG_FILE}.1" 2>/dev/null || true
+    fi
+}
+
+_log_rotate
 touch "$AWB_LOG_FILE"
 
 _log_timestamp() { date '+%Y-%m-%d %H:%M:%S'; }

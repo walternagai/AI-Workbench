@@ -13,7 +13,7 @@ _create_venv() {
     local path="${AWB_VENV_ROOT}/${name}"
 
     if [[ -d "$path" ]]; then
-        log_ok "venv '${name}' already exists, skipping creation."
+        log_info "venv '${name}' already exists; updating packages."
     else
         log_info "Creating venv '${name}'..."
         python3 -m venv "$path" || fail_loud "Failed to create venv: $name"
@@ -23,7 +23,9 @@ _create_venv() {
     source "$path/bin/activate"
     pip install --upgrade pip wheel --quiet
     if (( ${#packages[@]} > 0 )); then
-        pip install --quiet "${packages[@]}" || fail_loud "Failed to install packages into venv '${name}'"
+        # Always install/upgrade, even for existing venvs, so package list
+        # changes are picked up on re-runs (idempotent with updates).
+        pip install --upgrade "${packages[@]}" || fail_loud "Failed to install packages into venv '${name}'"
     fi
     deactivate
 

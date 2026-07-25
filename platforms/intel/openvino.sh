@@ -15,7 +15,7 @@ install_intel_openvino() {
     # shellcheck disable=SC1091
     source "$venv/bin/activate"
     pip install --upgrade pip --quiet
-    pip install --quiet "openvino>=2024.0" "openvino-dev>=2024.0" \
+    pip install "openvino>=2024.0" "openvino-dev>=2024.0" \
         || fail_loud "Failed to pip install openvino into $venv"
     deactivate
 

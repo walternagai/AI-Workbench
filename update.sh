@@ -55,27 +55,29 @@ update_self() {
 
 update_runtimes() {
     log_step "Updating runtimes"
-    # shellcheck disable=SC1091
-    source "${AWB_ROOT}/detect.sh" 2>/dev/null || true
+    safe_source "${AWB_ROOT}/detect.sh"
+    declare -F run_all_detections &>/dev/null || fail_loud "detect.sh loaded but run_all_detections() not found"
+    declare -F resolve_platform_target &>/dev/null || fail_loud "detect.sh loaded but resolve_platform_target() not found"
     run_all_detections
     resolve_platform_target
 
-    source "${AWB_ROOT}/runtimes/llama.cpp/install.sh"
+    safe_source "${AWB_ROOT}/runtimes/llama.cpp/install.sh"
     update_llama_cpp
 
     if has_cmd ollama; then
-        source "${AWB_ROOT}/runtimes/ollama/install.sh"
+        safe_source "${AWB_ROOT}/runtimes/ollama/install.sh"
         update_ollama
     fi
 }
 
 update_models() {
     log_step "Checking models"
-    source "${AWB_ROOT}/models/update.sh"
+    safe_source "${AWB_ROOT}/models/update.sh"
     model_update_all
 }
 
 main() {
+    trap 'log_info "Update interrupted."; exit 1' INT TERM
     is_true "$UPDATE_SELF" && update_self
     is_true "$UPDATE_RUNTIMES" && update_runtimes
     is_true "$UPDATE_MODELS" && update_models

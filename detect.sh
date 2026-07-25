@@ -21,11 +21,13 @@ source "${AWB_ROOT}/lib/utils.sh"
 # ---------------------------------------------------------------------------
 detect_os() {
     if [[ -f /etc/os-release ]]; then
-        # shellcheck disable=SC1091
-        source /etc/os-release
-        export OS_ID="${ID:-unknown}"
-        export OS_NAME="${PRETTY_NAME:-unknown}"
-        export OS_VERSION="${VERSION_ID:-unknown}"
+        # Parse /etc/os-release with awk instead of sourcing it.
+        # This avoids executing arbitrary code from the file and
+        # prevents environment pollution from ~30 exported variables.
+        OS_ID=$(awk -F= '/^ID=/    {gsub(/"/,"",$2); print $2; exit}' /etc/os-release) || OS_ID="unknown"
+        OS_NAME=$(awk -F= '/^PRETTY_NAME=/ {gsub(/"/,"",$2); print $2; exit}' /etc/os-release) || OS_NAME="unknown"
+        OS_VERSION=$(awk -F= '/^VERSION_ID=/ {gsub(/"/,"",$2); print $2; exit}' /etc/os-release) || OS_VERSION="unknown"
+        export OS_ID OS_NAME OS_VERSION
     else
         export OS_ID="unknown" OS_NAME="unknown" OS_VERSION="unknown"
     fi
@@ -88,7 +90,7 @@ detect_gpu() {
     # Discrete NVIDIA/AMD GPUs may coexist with an Intel iGPU. Record all
     # controllers so doctor.sh / reports can show the full picture.
     export GPU_ALL_CONTROLLERS
-    GPU_ALL_CONTROLLERS=$(lspci -mm | grep -Ei 'VGA compatible controller|3D controller' | sed -n 's/.*"\(.*\)"\s*$/\1/p' | paste -sd '; ' -)
+    GPU_ALL_CONTROLLERS=$(lspci -mm | grep -Ei 'VGA compatible controller|3D controller' | sed -n 's/.*"\(.*\)"\s*$/\1/p' | paste -sd '; ' -) || true
 }
 
 # ---------------------------------------------------------------------------
@@ -108,11 +110,15 @@ detect_vulkan() {
     export HAS_VULKAN="false"
     export VULKAN_DEVICE=""
     if has_cmd vulkaninfo; then
-        if vulkaninfo --summary >/tmp/awb_vulkaninfo.$$ 2>/dev/null; then
-            export HAS_VULKAN="true"
-            VULKAN_DEVICE=$(grep -m1 'deviceName' /tmp/awb_vulkaninfo.$$ | cut -d= -f2 | sed 's/^ //')
+        local tmpfile
+        tmpfile="$(mktemp /tmp/awb_vulkaninfo.XXXXXX 2>/dev/null)" || tmpfile=""
+        if [[ -n "$tmpfile" ]]; then
+            if vulkaninfo --summary >"$tmpfile" 2>/dev/null; then
+                export HAS_VULKAN="true"
+                VULKAN_DEVICE=$(grep -m1 'deviceName' "$tmpfile" | cut -d= -f2 | sed 's/^ //')
+            fi
+            rm -f "$tmpfile"
         fi
-        rm -f /tmp/awb_vulkaninfo.$$
     fi
 }
 
@@ -150,7 +156,14 @@ detect_rocm() {
 # ---------------------------------------------------------------------------
 detect_memory() {
     export RAM_GB
-    RAM_GB=$(( $(grep MemTotal /proc/meminfo | awk '{print $2}') / 1024 / 1024 ))
+    local mem_total
+    mem_total=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}') || true
+    if [[ -n "$mem_total" ]]; then
+        RAM_GB=$(( mem_total / 1024 / 1024 ))
+    else
+        RAM_GB=0
+        log_warn "Could not determine RAM size (/proc/meminfo not available)."
+    fi
 
     export VRAM_GB="0"
     if [[ "${HAS_CUDA:-false}" == "true" ]]; then
@@ -161,7 +174,7 @@ detect_memory() {
 
 detect_storage() {
     export DISK_AVAIL_GB
-    DISK_AVAIL_GB=$(df -BG --output=avail "$HOME" 2>/dev/null | tail -1 | tr -dc '0-9')
+    DISK_AVAIL_GB=$(df -BG --output=avail "$HOME" 2>/dev/null | tail -1 | tr -dc '0-9') || DISK_AVAIL_GB=""
 }
 
 # ---------------------------------------------------------------------------

@@ -11,7 +11,7 @@ install_intel_npu() {
         return 0
     fi
 
-    sudo apt-get update -y || fail_loud "apt-get update failed"
+    apt_update_once
     sudo apt-get install -y intel-driver-compiler-npu intel-fw-npu intel-level-zero-npu level-zero \
         || log_warn "NPU packages not found in configured apt sources. The 'intel/npu-driver' PPA/repo may need to be added manually; see docs/PLATFORM_INTEL.md. Continuing without NPU acceleration."
 

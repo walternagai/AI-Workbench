@@ -19,8 +19,9 @@ source "${AWB_ROOT}/lib/utils.sh"
 
 load_env "${AWB_ROOT}/config.env" false
 
-# shellcheck disable=SC1091
-source "${AWB_ROOT}/detect.sh" 2>/dev/null || true
+safe_source "${AWB_ROOT}/detect.sh"
+declare -F run_all_detections &>/dev/null || fail_loud "detect.sh loaded but run_all_detections() not found"
+declare -F resolve_platform_target &>/dev/null || fail_loud "detect.sh loaded but resolve_platform_target() not found"
 run_all_detections >/dev/null 2>&1
 resolve_platform_target >/dev/null 2>&1
 
@@ -68,7 +69,6 @@ check_cmd "Ninja" ninja
 check_cmd "curl" curl
 check_cmd "wget" wget
 check_cmd "Docker" docker
-check_cmd "Docker Compose" docker  # docker compose is a plugin subcommand
 if has_cmd docker && docker compose version >/dev/null 2>&1; then
     check "Docker Compose plugin" pass
 else
@@ -163,7 +163,7 @@ check "Disk free" pass "${DISK_AVAIL_GB:-?} GB"
 # Category: Models
 # ---------------------------------------------------------------------------
 echo -e "\n${C_BOLD}Models${C_RESET}"
-model_count=$(find "${AI_HOME:-$HOME/ai}/models/gguf" -name '*.gguf' 2>/dev/null | wc -l)
+model_count=$(find "${AI_HOME:-$HOME/ai}/models/gguf" -name '*.gguf' 2>/dev/null | wc -l) || model_count=0
 if (( model_count > 0 )); then
     check "GGUF models installed" pass "${model_count} file(s)"
 else
@@ -187,6 +187,16 @@ echo -e "\n${C_BOLD}Summary:${C_RESET} ${passed} passed, ${failed} failed, ${ski
 
 ensure_dir "${AWB_ROOT}/reports"
 
+# _json_escape <string> — escape JSON special characters in a string.
+_json_escape() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\t'/\\t}"
+    s="${s//$'\r'/\\r}"
+    printf '%s' "$s" | tr -d '[\000-\010\013\014\016-\037]'
+}
 {
     echo "{"
     echo "  \"total\": ${total},"
@@ -197,7 +207,10 @@ ensure_dir "${AWB_ROOT}/reports"
     for i in "${!AWB_CHECK_NAMES[@]}"; do
         sep=","; [[ $i -eq $((total-1)) ]] && sep=""
         printf '    {"name": "%s", "status": "%s", "detail": "%s"}%s\n' \
-            "${AWB_CHECK_NAMES[$i]}" "${AWB_CHECK_STATUS[$i]}" "${AWB_CHECK_DETAIL[$i]//\"/\\\"}" "$sep"
+            "$(_json_escape "${AWB_CHECK_NAMES[$i]}")" \
+            "$(_json_escape "${AWB_CHECK_STATUS[$i]}")" \
+            "$(_json_escape "${AWB_CHECK_DETAIL[$i]}")" \
+            "$sep"
     done
     echo "  ]"
     echo "}"
@@ -217,4 +230,4 @@ ensure_dir "${AWB_ROOT}/reports"
 
 log_info "Reports written: reports/doctor.json, reports/doctor.md"
 
-(( failed > 0 )) && exit 1 || exit 0
+if (( failed > 0 )); then exit 1; else exit 0; fi

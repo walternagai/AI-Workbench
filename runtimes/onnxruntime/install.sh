@@ -19,7 +19,7 @@ install_onnxruntime() {
 
     # shellcheck disable=SC1091
     source "$venv/bin/activate"
-    pip install --quiet "$package" \
+    pip install "$package" \
         || fail_loud "Failed to install $package"
     deactivate
 

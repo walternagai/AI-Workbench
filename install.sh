@@ -111,16 +111,18 @@ section_validate() {
 section_system_update() {
     log_step "Updating system packages"
     sudo_keepalive
-    sudo apt-get update -y || fail_loud "apt-get update failed"
-    sudo apt-get upgrade -y || fail_loud "apt-get upgrade failed"
-    sudo apt-get install -y build-essential cmake ninja-build git curl wget pciutils lm-sensors python3 python3-venv python3-pip \
+    apt_update_once
+    sudo apt-get install -y \
+        build-essential cmake ninja-build git curl wget pciutils \
+        lm-sensors python3 python3-venv python3-pip \
         || fail_loud "Failed to install base build/detection tooling"
 }
 
 section_detect() {
     log_step "Detecting hardware"
-    # shellcheck disable=SC1091
-    source "${AWB_ROOT}/detect.sh" 2>/dev/null || true
+    safe_source "${AWB_ROOT}/detect.sh"
+    declare -F run_all_detections &>/dev/null || fail_loud "detect.sh loaded but run_all_detections() not found"
+    declare -F resolve_platform_target &>/dev/null || fail_loud "detect.sh loaded but resolve_platform_target() not found"
     run_all_detections
     resolve_platform_target
     print_summary
@@ -139,18 +141,18 @@ section_platform() {
     log_step "Installing platform stack: ${PLATFORM_TARGET}"
     # CPU baseline is always installed, regardless of detected GPU, since
     # every runtime needs a working fallback path.
-    source "${AWB_ROOT}/platforms/cpu/install.sh"
+    safe_source "${AWB_ROOT}/platforms/cpu/install.sh"
     install_cpu_platform
 
     case "$PLATFORM_TARGET" in
         intel)
-            source "${AWB_ROOT}/platforms/intel/install.sh"
+            safe_source "${AWB_ROOT}/platforms/intel/install.sh"
             install_intel_platform ;;
         amd)
-            source "${AWB_ROOT}/platforms/amd/install.sh"
+            safe_source "${AWB_ROOT}/platforms/amd/install.sh"
             install_amd_platform ;;
         nvidia)
-            source "${AWB_ROOT}/platforms/nvidia/install.sh"
+            safe_source "${AWB_ROOT}/platforms/nvidia/install.sh"
             install_nvidia_platform ;;
         cpu)
             log_info "No GPU detected; CPU-only stack is sufficient." ;;
@@ -161,28 +163,28 @@ section_platform() {
 
 section_python() {
     log_step "Creating Python environments"
-    source "${AWB_ROOT}/python/create_envs.sh"
+    safe_source "${AWB_ROOT}/python/create_envs.sh"
     create_all_envs
 }
 
 section_runtimes() {
     log_step "Installing runtimes"
-    is_true "${INSTALL_LLAMACPP:-true}" && { source "${AWB_ROOT}/runtimes/llama.cpp/install.sh"; install_llama_cpp; }
-    is_true "${INSTALL_OLLAMA:-true}"   && { source "${AWB_ROOT}/runtimes/ollama/install.sh"; install_ollama; }
-    is_true "${INSTALL_OPENVINO:-true}" && { source "${AWB_ROOT}/runtimes/openvino/install.sh"; install_openvino_runtime; }
-    is_true "${INSTALL_ONNXRUNTIME:-true}" && { source "${AWB_ROOT}/runtimes/onnxruntime/install.sh"; install_onnxruntime; }
-    is_true "${INSTALL_WHISPER:-true}"  && { source "${AWB_ROOT}/runtimes/whisper/install.sh"; install_whisper_cpp; }
+    is_true "${INSTALL_LLAMACPP:-true}" && { safe_source "${AWB_ROOT}/runtimes/llama.cpp/install.sh"; install_llama_cpp; }
+    is_true "${INSTALL_OLLAMA:-true}"   && { safe_source "${AWB_ROOT}/runtimes/ollama/install.sh"; install_ollama; }
+    is_true "${INSTALL_OPENVINO:-true}" && { safe_source "${AWB_ROOT}/runtimes/openvino/install.sh"; install_openvino_runtime; }
+    is_true "${INSTALL_ONNXRUNTIME:-true}" && { safe_source "${AWB_ROOT}/runtimes/onnxruntime/install.sh"; install_onnxruntime; }
+    is_true "${INSTALL_WHISPER:-true}"  && { safe_source "${AWB_ROOT}/runtimes/whisper/install.sh"; install_whisper_cpp; }
 }
 
 section_models() {
     log_step "Downloading default model"
-    source "${AWB_ROOT}/models/install.sh"
+    safe_source "${AWB_ROOT}/models/install.sh"
     model_install "${DEFAULT_MODEL:-gemma3-e2b}"
 }
 
 section_services() {
     log_step "Starting services"
-    source "${AWB_ROOT}/services/install.sh"
+    safe_source "${AWB_ROOT}/services/install.sh"
     install_services
 }
 
@@ -190,7 +192,7 @@ section_benchmark() {
     log_step "Running benchmark"
     local model_file="${AI_HOME:-$HOME/ai}/models/gguf/${AWB_DEFAULT_GGUF:-}"
     if [[ -f "$model_file" ]]; then
-        source "${AWB_ROOT}/runtimes/llama.cpp/benchmark.sh"
+        safe_source "${AWB_ROOT}/runtimes/llama.cpp/benchmark.sh"
         benchmark_llama_cpp "$model_file"
     else
         log_warn "Default model not found at $model_file; skipping benchmark."
@@ -228,7 +230,16 @@ section_report() {
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+# Called on EXIT / INT / TERM to ensure no background processes (e.g.
+# sudo_keepalive) are left behind after an interruption or crash.
+_cleanup() {
+    if [[ -n "${AWB_SUDO_KEEPALIVE_PID:-}" ]]; then
+        kill "$AWB_SUDO_KEEPALIVE_PID" 2>/dev/null || true
+    fi
+}
+
 main() {
+    trap _cleanup EXIT INT TERM
     log_step "AI-Workbench Core v1.0 — Installer"
 
     is_true "$RUN_VALIDATE" && section_validate

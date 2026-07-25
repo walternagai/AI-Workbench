@@ -14,7 +14,7 @@ install_intel_vulkan() {
         return 0
     fi
 
-    sudo apt-get update -y || fail_loud "apt-get update failed"
+    apt_update_once
     sudo apt-get install -y \
         mesa-vulkan-drivers \
         vulkan-tools \

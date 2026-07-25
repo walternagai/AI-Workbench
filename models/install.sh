@@ -7,6 +7,9 @@ AWB_ROOT="${AWB_ROOT:?must be sourced from install.sh}"
 
 AWB_MODELS_DIR="${AI_HOME:-$HOME/ai}/models/gguf"
 
+# Allow forced re-install via env var AWB_FORCE_REINSTALL=true
+# (e.g. AWB_FORCE_REINSTALL=true awb model install qwen3)
+
 # Curated catalog: name -> "hf_repo_id|filename|approx_size|notes"
 _awb_model_catalog() {
     case "$1" in
@@ -28,7 +31,7 @@ _awb_model_catalog() {
 }
 
 model_catalog_list() {
-    echo -e "${C_BOLD}Available models (name — size — notes):${C_RESET}"
+    printf '%b%s%b\n' "${C_BOLD}" "Available models (name — size — notes):" "${C_RESET}"
     for name in gemma3 gemma3-e2b qwen3 qwen3-4b phi4 deepseek-coder-v2; do
         local entry size notes
         entry="$(_awb_model_catalog "$name")"
@@ -36,18 +39,21 @@ model_catalog_list() {
         notes="$(echo "$entry" | cut -d'|' -f4)"
         printf '  %-20s %-10s %s\n' "$name" "$size" "$notes"
     done
-    echo -e "\nInstall with: awb model install <name>"
-    echo -e "Or a raw HF pair: awb model install custom <repo_id> <filename>"
+    printf '\nInstall with: %bawb model install <name>%b\n' "${C_BOLD}" "${C_RESET}"
+    printf 'Or a raw HF pair: %bawb model install custom <repo_id> <filename>%b\n' "${C_BOLD}" "${C_RESET}"
 }
 
 model_install() {
     local name="${1:?usage: model_install <name>|custom <repo_id> <filename>}"
+    local force_flag=""
+    [[ "${AWB_FORCE_REINSTALL:-false}" == "true" ]] && force_flag="--force"
+
     ensure_dir "$AWB_MODELS_DIR"
 
     if [[ "$name" == "custom" ]]; then
         local repo_id="${2:?repo_id required for custom install}"
         local filename="${3:?filename required for custom install}"
-        awb_hf_download "$repo_id" "$filename" "$AWB_MODELS_DIR"
+        awb_hf_download "$repo_id" "$filename" "$AWB_MODELS_DIR" "$force_flag"
         return 0
     fi
 
@@ -60,16 +66,11 @@ model_install() {
 
     log_step "Installing model: ${name} (${size}) — ${notes}"
 
-    if [[ -f "${AWB_MODELS_DIR}/${filename}" ]]; then
-        log_ok "Model already present: ${filename}"
-        return 0
-    fi
-
     if [[ "${AWB_LOW_MEMORY:-false}" == "true" ]]; then
         log_warn "Low-memory system detected (${RAM_GB:-?}GB RAM). Prefer Q8_0 quantization on small models over Q4_K_M — quality loss from 4-bit quantization is proportionally larger on small models."
     fi
 
-    awb_hf_download "$repo_id" "$filename" "$AWB_MODELS_DIR"
+    awb_hf_download "$repo_id" "$filename" "$AWB_MODELS_DIR" "$force_flag"
     log_ok "Model installed: ${AWB_MODELS_DIR}/${filename}"
 }
 
