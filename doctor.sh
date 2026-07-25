@@ -16,6 +16,8 @@ source "${AWB_ROOT}/lib/colors.sh"
 source "${AWB_ROOT}/lib/logger.sh"
 # shellcheck source=lib/utils.sh
 source "${AWB_ROOT}/lib/utils.sh"
+# shellcheck source=lib/downloader.sh
+source "${AWB_ROOT}/lib/downloader.sh"   # for _awb_hf_cli (Models category)
 
 load_env "${AWB_ROOT}/config.env" false
 
@@ -214,11 +216,36 @@ check "Disk free" pass "${DISK_AVAIL_GB:-?} GB"
 # Category: Models
 # ---------------------------------------------------------------------------
 echo -e "\n${C_BOLD}Models${C_RESET}"
+
+# The Hugging Face CLI is what every model download goes through. It is not
+# necessarily on PATH: create_envs.sh installs huggingface_hub into
+# ~/venvs/core, which nothing activates — so resolve it exactly the way
+# lib/downloader.sh does rather than just checking `has_cmd hf`.
+if hf_cli_path="$(_awb_hf_cli 2>/dev/null)"; then
+    check "Hugging Face CLI reachable" pass "$hf_cli_path"
+else
+    check "Hugging Face CLI reachable" fail "no 'hf' found on PATH or in ~/venvs/core; model downloads will fail (pip install huggingface_hub, or ./install.sh --only python)"
+fi
+
 model_count=$(find "${AI_HOME:-$HOME/ai}/models/gguf" -name '*.gguf' 2>/dev/null | wc -l) || model_count=0
 if (( model_count > 0 )); then
     check "GGUF models installed" pass "${model_count} file(s)"
 else
     check "GGUF models installed" fail "run: awb model install ${DEFAULT_MODEL:-gemma3-e2b}"
+fi
+
+# whisper-cli is useless without a GGML model, and benchmarks/whisper/run.sh
+# needs one specifically — checking only the binary let a green doctor run
+# still be followed by a failing `awb benchmark whisper`.
+if is_true "${INSTALL_WHISPER:-true}"; then
+    whisper_count=$(find "${AI_HOME:-$HOME/ai}/models/whisper" -name '*.bin' 2>/dev/null | wc -l) || whisper_count=0
+    if (( whisper_count > 0 )); then
+        check "Whisper models installed" pass "${whisper_count} file(s)"
+    else
+        check "Whisper models installed" fail "run: awb model install whisper-base.en"
+    fi
+else
+    check "Whisper models installed" skip "INSTALL_WHISPER disabled in config.env"
 fi
 
 # ---------------------------------------------------------------------------
