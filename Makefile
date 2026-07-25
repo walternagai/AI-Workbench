@@ -78,7 +78,7 @@ benchmark:
 	./scripts/awb benchmark $(TARGET) $(ARGS)
 
 clean-logs:
-	rm -f logs/*.log
+	rm -f logs/*.log logs/*.log.*
 
 clean-reports:
 	rm -f reports/*.json reports/*.md
