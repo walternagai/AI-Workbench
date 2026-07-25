@@ -59,6 +59,35 @@ awb_verify_checksum() {
     [[ "$actual" == "$expected" ]]
 }
 
+# _awb_hf_cli — resolve an invocable Hugging Face CLI, or return 1.
+#
+# Two things this has to get right:
+#   1. `hf` is the current CLI; `huggingface-cli` is deprecated and, from
+#      huggingface_hub 1.x on, refuses to run at all ("deprecated and no
+#      longer works"). So `hf` must be tried FIRST — `huggingface-cli` is
+#      only a fallback for installs old enough to predate `hf`.
+#   2. python/create_envs.sh installs huggingface_hub into ~/venvs/core,
+#      which is never on PATH, and nothing in the model-download path
+#      activates it. A venv's console scripts embed their own interpreter
+#      in the shebang, so invoking them by absolute path works without
+#      activation — that's what makes the default install able to download
+#      its own model on a machine with no system-wide huggingface_hub.
+_awb_hf_cli() {
+    local venv_bin="${AWB_VENV_ROOT:-$HOME/venvs}/core/bin"
+    local candidate
+    for candidate in hf huggingface-cli; do
+        if has_cmd "$candidate"; then
+            printf '%s' "$candidate"
+            return 0
+        fi
+        if [[ -x "${venv_bin}/${candidate}" ]]; then
+            printf '%s' "${venv_bin}/${candidate}"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # awb_hf_download <repo_id> <filename> <dest_dir> [--force]
 # Thin wrapper around the Hugging Face CLI for GGUF/model downloads.
 # Hugging Face's CLI has built-in caching (~/.cache/huggingface/hub/); this
@@ -97,25 +126,19 @@ awb_hf_download() {
 
     log_info "Fetching ${repo_id}/${filename} from Hugging Face ..."
 
-    # Try huggingface-cli first (modern), fall back to hf (legacy)
-    local download_ok=false
-    if has_cmd huggingface-cli; then
-        if huggingface-cli download "$repo_id" "$filename" \
-                --local-dir "$dest_dir" \
-                --resume-download \
-                --quiet 2>/dev/null; then
-            download_ok=true
-        fi
-    fi
-    if ! $download_ok && has_cmd hf; then
-        log_info "Trying legacy 'hf download' ..."
-        if hf download "$repo_id" "$filename" --local-dir "$dest_dir"; then
-            download_ok=true
-        fi
-    fi
-    if ! $download_ok; then
+    local hf_cli
+    if ! hf_cli="$(_awb_hf_cli)"; then
         rm -f "$partial_marker"
-        fail_loud "Hugging Face download failed: ${repo_id}/${filename}. Install huggingface_hub: pip install huggingface_hub"
+        fail_loud "No Hugging Face CLI found. Install it with 'pip install huggingface_hub', or run install.sh's python section (./install.sh --only python) to create ~/venvs/core."
+    fi
+
+    # No --resume-download: the flag was removed from the modern `hf`
+    # CLI (resume is the default). stderr is deliberately NOT silenced —
+    # swallowing it is what previously hid the huggingface-cli deprecation
+    # notice and made a dead code path look like a working one.
+    if ! "$hf_cli" download "$repo_id" "$filename" --local-dir "$dest_dir"; then
+        rm -f "$partial_marker"
+        fail_loud "Hugging Face download failed: ${repo_id}/${filename} (using ${hf_cli})"
     fi
 
     # Post-download validation: must exist and be non-empty
