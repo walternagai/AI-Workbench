@@ -6,7 +6,7 @@ services:
     container_name: awb-chromadb
     restart: unless-stopped
     ports:
-      - "${CHROMADB_PORT:-8000}:8000"
+      - "${SERVICES_BIND_HOST:-127.0.0.1}:${CHROMADB_PORT:-8000}:8000"
     volumes:
       - chromadb_data:/chroma/chroma
 
