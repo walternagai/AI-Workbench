@@ -10,13 +10,16 @@ AWB_SUPPORTED_DISTROS=("ubuntu" "pop" "linuxmint")
 # Portability principle: v1.0 targets Ubuntu, Pop!_OS and Linux Mint
 # explicitly; anything else is refused rather than silently attempted.
 validate_os() {
-    [[ -f /etc/os-release ]] || fail_loud "Cannot detect OS: /etc/os-release not found."
-    # Parse /etc/os-release with awk instead of sourcing it,
+    # AWB_OS_RELEASE exists so the unsupported-distro path is reachable from a
+    # unit test without a container: nothing else should ever override it.
+    local osrel="${AWB_OS_RELEASE:-/etc/os-release}"
+    [[ -f "$osrel" ]] || fail_loud "Cannot detect OS: ${osrel} not found."
+    # Parse os-release with awk instead of sourcing it,
     # for the same security and isolation reasons as detect.sh.
     local id like pretty
-    id=$(awk -F= '/^ID=/          {gsub(/"/,"",$2); print $2; exit}' /etc/os-release) || id="unknown"
-    like=$(awk -F= '/^ID_LIKE=/    {gsub(/"/,"",$2); print $2; exit}' /etc/os-release) || like=""
-    pretty=$(awk -F= '/^PRETTY_NAME=/ {gsub(/"/,"",$2); print $2; exit}' /etc/os-release) || pretty="$id"
+    id=$(awk -F= '/^ID=/          {gsub(/"/,"",$2); print $2; exit}' "$osrel") || id="unknown"
+    like=$(awk -F= '/^ID_LIKE=/    {gsub(/"/,"",$2); print $2; exit}' "$osrel") || like=""
+    pretty=$(awk -F= '/^PRETTY_NAME=/ {gsub(/"/,"",$2); print $2; exit}' "$osrel") || pretty="$id"
     local supported=false
     for d in "${AWB_SUPPORTED_DISTROS[@]}"; do
         if [[ "$id" == "$d" || "$like" == *"$d"* || "$like" == *"debian"* || "$id" == "debian" ]]; then

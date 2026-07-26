@@ -52,12 +52,27 @@ locally with:
 shellcheck -x --severity=warning $(find . -name '*.sh' -not -path './.git/*') scripts/awb
 ```
 
-Bash unit tests for the pure helpers in `lib/` (no hardware/network needed)
-live under `tests/bats/` and run with [bats-core](https://github.com/bats-core/bats-core):
+Bash unit tests (no hardware, network or package manager needed) live under
+`tests/bats/` and run with [bats-core](https://github.com/bats-core/bats-core):
 
 ```bash
-bats tests/bats/
+bats tests/bats/            # whole suite
+bats tests/bats/lib_utils.bats
 ```
+
+| file | covers |
+| --- | --- |
+| `lib_utils.bats` | `has_cmd`, `is_true`, `ensure_dir`, `ensure_prereq_dirs`, `retry`, `require_cmd`, `safe_source`, `load_env`, `json_kv` |
+| `lib_validation.bats` | `validate_os/arch/ram/disk_space` — severities here are mirrored by doctor.sh's Resources checks, so the two must not drift |
+| `lib_downloader.bats` | `awb_verify_checksum`, `_awb_hf_cli` |
+| `detect_gpu.bats` | `detect_gpu()` vendor classification, driven by a stubbed `lspci` |
+| `detect_platform.bats` | `resolve_platform_target()` priority ladder (nvidia > amd > intel > cpu) |
+| `models_catalog.bats` | catalog shape, and agreement between the catalogs, `model_catalog_list` and `config.env` |
+
+Tests must stay hermetic: anything reading `$HOME` has to be redirected to a
+temp dir in `setup()`. A test that passes only on a machine where
+AI-Workbench is *not* installed is a broken test — `lib_downloader.bats` had
+exactly that bug, passing in CI while failing for every developer.
 
 There is no separate Python lint command configured (no ruff/flake8 config in
 the repo).

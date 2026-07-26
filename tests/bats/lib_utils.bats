@@ -116,3 +116,103 @@ teardown() {
     run json_kv gpu_model 'Meteor Lake-P [Intel Arc Graphics]'
     [ "$output" = '  "gpu_model": "Meteor Lake-P [Intel Arc Graphics]"' ]
 }
+
+# --- require_cmd -------------------------------------------------------------
+
+@test "require_cmd: silent for a command that exists" {
+    run require_cmd bash "the shell"
+    [ "$status" -eq 0 ]
+}
+
+@test "require_cmd: fails loud and names both the command and the reason" {
+    run require_cmd definitely-not-a-real-binary "needed for the thing"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"definitely-not-a-real-binary"* ]]
+    [[ "$output" == *"needed for the thing"* ]]
+}
+
+# --- safe_source -------------------------------------------------------------
+
+@test "safe_source: sources a file that exists and runs its contents" {
+    printf 'AWB_TEST_SOURCED=yes\n' > "${AWB_ROOT}/mod.sh"
+    safe_source "${AWB_ROOT}/mod.sh"
+    [ "$AWB_TEST_SOURCED" = "yes" ]
+}
+
+@test "safe_source: fails loud instead of silently continuing when missing" {
+    # The whole point of the helper: a missing module must abort here rather
+    # than surface later as an undefined function.
+    run safe_source "${AWB_ROOT}/no-such-module.sh"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Required module not found"* ]]
+}
+
+# --- load_env ----------------------------------------------------------------
+
+@test "load_env: exports the variables it reads" {
+    printf 'AWB_TEST_FLAG=true\nAWB_TEST_NAME=workbench\n' > "${AWB_ROOT}/env"
+    load_env "${AWB_ROOT}/env"
+    [ "$AWB_TEST_FLAG" = "true" ]
+    [ "$AWB_TEST_NAME" = "workbench" ]
+}
+
+@test "load_env: marks variables for export, not just assignment" {
+    # load_env wraps the source in set -a precisely so child processes (the
+    # installer shells out constantly) inherit config.env.
+    printf 'AWB_TEST_EXPORTED=yes\n' > "${AWB_ROOT}/env"
+    load_env "${AWB_ROOT}/env"
+    run bash -c 'printf "%s" "$AWB_TEST_EXPORTED"'
+    [ "$output" = "yes" ]
+}
+
+@test "load_env: a missing optional file is not an error" {
+    run load_env "${AWB_ROOT}/absent.env"
+    [ "$status" -eq 0 ]
+}
+
+@test "load_env: a missing required file fails loud" {
+    run load_env "${AWB_ROOT}/absent.env" true
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Required environment file not found"* ]]
+}
+
+@test "load_env: later values win, so a re-read overrides an earlier one" {
+    printf 'AWB_TEST_V=first\n'  > "${AWB_ROOT}/a.env"
+    printf 'AWB_TEST_V=second\n' > "${AWB_ROOT}/b.env"
+    load_env "${AWB_ROOT}/a.env"
+    load_env "${AWB_ROOT}/b.env"
+    [ "$AWB_TEST_V" = "second" ]
+}
+
+# --- ensure_prereq_dirs ------------------------------------------------------
+# PRINCIPLES.md §2: these are created unconditionally, before any platform or
+# runtime branch, because a runtime once assumed a directory that only a
+# platform branch had created.
+
+@test "ensure_prereq_dirs: creates every directory the installer assumes exists" {
+    export HOME="${AWB_ROOT}/home"
+    export AI_HOME="${AWB_ROOT}/home/ai"
+    ensure_prereq_dirs
+    [ -d "${AWB_ROOT}/logs" ]
+    [ -d "${AWB_ROOT}/reports" ]
+    [ -d "${AI_HOME}" ]
+    [ -d "${AI_HOME}/models" ]
+    [ -d "${AI_HOME}/bin" ]
+    [ -d "${HOME}/venvs" ]
+}
+
+@test "ensure_prereq_dirs: honours AI_HOME instead of hardcoding ~/ai" {
+    export HOME="${AWB_ROOT}/home"
+    export AI_HOME="${AWB_ROOT}/elsewhere"
+    ensure_prereq_dirs
+    [ -d "${AWB_ROOT}/elsewhere/models" ]
+    [ ! -d "${AWB_ROOT}/home/ai" ]
+}
+
+@test "ensure_prereq_dirs: is idempotent" {
+    export HOME="${AWB_ROOT}/home"
+    export AI_HOME="${AWB_ROOT}/home/ai"
+    ensure_prereq_dirs
+    run ensure_prereq_dirs
+    [ "$status" -eq 0 ]
+}

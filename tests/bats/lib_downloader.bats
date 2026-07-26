@@ -7,6 +7,12 @@
 setup() {
     export AWB_ROOT
     AWB_ROOT="$(mktemp -d)"
+    # Point the venv lookup at an empty directory for every test in this file.
+    # Without this, _awb_hf_cli falls through to the real ~/venvs/core/bin/hf,
+    # so the suite passed on a clean CI runner and failed on any machine where
+    # AI-Workbench was actually installed — i.e. exactly the developers running
+    # it. Tests that want a venv create one under this root themselves.
+    export AWB_VENV_ROOT="${AWB_ROOT}/venvs"
     source "${BATS_TEST_DIRNAME}/../../lib/colors.sh"
     source "${BATS_TEST_DIRNAME}/../../lib/logger.sh"
     source "${BATS_TEST_DIRNAME}/../../lib/utils.sh"
