@@ -73,7 +73,8 @@ _cmd_version() {
 # _venv_pkg_version <venv> <package> — prints the installed version of <package>
 # inside ~/venvs/<venv>, returns non-zero if it isn't installed there.
 _venv_pkg_version() {
-    local venv="$1" pkg="$2" py="$HOME/venvs/$1/bin/python" ver=""
+    local venv="$1" pkg="$2" ver=""
+    local py="$HOME/venvs/${venv}/bin/python"
     [[ -x "$py" ]] || return 1
     ver="$(timeout 30 "$py" -c "import importlib.metadata as m; print(m.version('${pkg}'))" 2>/dev/null)"
     [[ -n "$ver" ]] || return 1
