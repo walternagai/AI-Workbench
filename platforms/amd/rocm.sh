@@ -21,6 +21,13 @@ install_amd_rocm() {
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/latest ${os_codename} main" \
         | sudo tee /etc/apt/sources.list.d/rocm.list >/dev/null
 
+    # Ubuntu universe ships its own rocminfo/rocm-smi with a *higher* version
+    # string (e.g. 5.7.1-3build1) than AMD's (1.0.0.70204-93~24.04). At equal
+    # priority apt picks Ubuntu's, which breaks rocm-hip-runtime's exact-version
+    # dependency. Pin the AMD repo above the default 500 so its packages win.
+    printf 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600\n' \
+        | sudo tee /etc/apt/preferences.d/rocm-pin-600 >/dev/null
+
     sudo apt-get update -y || fail_loud "apt-get update failed after adding ROCm repo"
     sudo apt-get install -y rocm-hip-runtime rocm-smi rocminfo \
         || fail_loud "Failed to install ROCm packages"
