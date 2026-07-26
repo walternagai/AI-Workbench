@@ -87,13 +87,27 @@ runtime-install:
 benchmark:
 	./scripts/awb benchmark $(TARGET) $(ARGS)
 
-# The three checks below mirror the three jobs in .github/workflows/ci.yml —
-# keep them in step, so a green `make test` means a green CI. Missing tooling
-# aborts with the install line rather than skipping the check: a test run that
-# quietly covers less than it claims is worse than no test run.
+# The three checks below are what CI runs — each job in
+# .github/workflows/ci.yml invokes the matching target, so the command lives
+# here only and the two cannot drift. A green `make test` means a green CI.
+# Missing tooling aborts with the install line rather than skipping the check:
+# a test run that quietly covers less than it claims is worse than no test run.
 test: test-shell test-bats test-python
 	@echo "All checks passed."
 
+# scripts/awb is appended explicitly: it has no .sh extension, so every glob
+# and find pattern misses it.
+#
+# --severity=warning: warnings and errors fail the build; the remaining
+# "info"-level notes are SC2015 ("A && B || C") and SC2329 (functions only
+# invoked via trap, so they look unreachable).
+#
+# SC2021 ("don't use [] around tr classes") used to be listed here as a
+# reviewed idiom too. It was not: tr has no bracket-grouping syntax, so those
+# brackets were being deleted as literal characters, silently stripping [] out
+# of every lspci device name written to hardware.json. Fixed in json_kv and
+# doctor.sh's _json_escape, and covered by tests/bats/lib_utils.bats. Re-check
+# anything on this list before assuming it is noise.
 test-shell:
 	@command -v shellcheck >/dev/null \
 	  || { echo "shellcheck not installed: sudo apt install shellcheck" >&2; exit 1; }

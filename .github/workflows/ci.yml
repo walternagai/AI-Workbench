@@ -14,22 +14,12 @@ jobs:
       - name: Ensure ShellCheck is available
         run: command -v shellcheck || { sudo apt-get update && sudo apt-get install -y shellcheck; }
 
+      # Run through the Makefile rather than duplicating the command here: the
+      # file list and severity live in one place, and CI fails if the target a
+      # contributor runs locally stops matching what CI checks. See the
+      # Makefile for why --severity=warning is the threshold.
       - name: Lint all shell scripts
-        # --severity=warning: warnings and errors fail the build; the
-        # remaining "info"-level notes are SC2015 ("A && B || C") and SC2329
-        # (functions only invoked via trap, so they look unreachable).
-        #
-        # SC2021 ("don't use [] around tr classes") used to be listed here as
-        # a reviewed idiom too. It was not: tr has no bracket-grouping syntax,
-        # so those brackets were being deleted as literal characters, silently
-        # stripping [] out of every lspci device name written to
-        # hardware.json. Fixed in json_kv and doctor.sh's _json_escape, and
-        # covered by tests/bats/lib_utils.bats. Re-check anything on this list
-        # before assuming it is noise.
-        run: |
-          mapfile -t files < <(find . -name '*.sh' -not -path './.git/*' | sort)
-          files+=(scripts/awb)
-          shellcheck -x --severity=warning "${files[@]}"
+        run: make test-shell
 
   python-tests:
     name: pytest (benchmarks)
@@ -45,7 +35,7 @@ jobs:
         run: pip install -r requirements-test.txt
 
       - name: Run tests with coverage
-        run: pytest --cov
+        run: make test-python
 
   bats:
     name: bats (lib/ unit tests)
@@ -57,4 +47,4 @@ jobs:
         run: command -v bats || { sudo apt-get update && sudo apt-get install -y bats; }
 
       - name: Run bats tests
-        run: bats tests/bats/
+        run: make test-bats
