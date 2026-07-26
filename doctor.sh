@@ -28,9 +28,15 @@ run_all_detections >/dev/null 2>&1
 resolve_platform_target >/dev/null 2>&1
 
 declare -a AWB_CHECK_NAMES=()
-declare -a AWB_CHECK_STATUS=()   # "pass" | "fail" | "skip"
+declare -a AWB_CHECK_STATUS=()   # "pass" | "warn" | "fail" | "skip"
 declare -a AWB_CHECK_DETAIL=()
 
+# "warn" exists because some conditions are degraded-but-usable rather than
+# broken, and lib/validation.sh already draws that line at install time:
+# validate_disk_space aborts below MIN_DISK_GB, validate_ram only warns below
+# MIN_RAM_GB and sets AWB_LOW_MEMORY. Collapsing that into pass/fail would make
+# doctor either lie about a low-RAM box or report a failure install tolerates.
+# Unlike "skip" (deliberately not applicable), "warn" means look at this.
 check() {
     local name="$1" status="$2" detail="${3:-}"
     AWB_CHECK_NAMES+=("$name")
@@ -38,8 +44,10 @@ check() {
     AWB_CHECK_DETAIL+=("$detail")
     case "$status" in
         pass) echo -e "  ${CHECK_MARK} ${name}" ;;
+        warn) echo -e "  ${WARN_MARK} ${name}${detail:+ — ${detail}}" ;;
         fail) echo -e "  ${CROSS_MARK} ${name}${detail:+ — ${detail}}" ;;
-        skip) echo -e "  ${WARN_MARK} ${name} (skipped)${detail:+ — ${detail}}" ;;
+        skip) echo -e "  ${SKIP_MARK} ${name} (skipped)${detail:+ — ${detail}}" ;;
+        *)    echo -e "  ${CROSS_MARK} ${name} — internal error: unknown check status '${status}'" ;;
     esac
 }
 
@@ -215,9 +223,45 @@ check_secret "Postgres password" "${INSTALL_POSTGRES:-false}" "${POSTGRES_PASSWO
 # Category: Resources
 # ---------------------------------------------------------------------------
 echo -e "\n${C_BOLD}Resources${C_RESET}"
-check "RAM" pass "${RAM_GB:-?} GB"
-check "VRAM" pass "${VRAM_GB:-0} GB"
-check "Disk free" pass "${DISK_AVAIL_GB:-?} GB"
+
+# These three passed a literal `pass` until this was fixed: they printed the
+# numbers without ever comparing them to anything, so they reported green on a
+# box with 1GB of RAM and no disk. Thresholds come from config.env, and the
+# severities mirror lib/validation.sh (disk fatal, RAM degraded-but-usable) so
+# doctor and install.sh cannot disagree about the same machine.
+_min_ram="${MIN_RAM_GB:-8}"
+if [[ ! "${RAM_GB:-}" =~ ^[0-9]+$ ]]; then
+    check "RAM" warn "could not determine system RAM"
+elif (( RAM_GB < _min_ram )); then
+    check "RAM" warn "${RAM_GB} GB detected, ${_min_ram} GB recommended — low-memory mode: prefer smaller models and Q8_0 over Q4_K_M"
+else
+    check "RAM" pass "${RAM_GB} GB (min ${_min_ram} GB)"
+fi
+
+# VRAM only means something for a GPU with memory of its own. detect.sh reads
+# it from nvidia-smi and nothing else, so it is 0 on every other vendor —
+# reporting "0 GB / pass" reads as "no GPU memory" on an iGPU that is in fact
+# running every layer out of shared system RAM at full speed.
+if [[ "${VRAM_GB:-0}" =~ ^[0-9]+$ ]] && (( VRAM_GB > 0 )); then
+    check "VRAM" pass "${VRAM_GB} GB dedicated"
+elif [[ "${GPU_VENDOR:-}" == "Intel" ]]; then
+    check "VRAM" skip "Intel iGPU has no dedicated VRAM — it shares system memory (${RAM_GB:-?} GB total)"
+elif [[ "${HAS_AMD_GPU:-false}" == "true" ]]; then
+    check "VRAM" skip "not measured on AMD — detect.sh reads VRAM via nvidia-smi only"
+elif [[ "${PLATFORM_TARGET:-cpu}" == "cpu" ]]; then
+    check "VRAM" skip "no GPU detected; CPU-only stack"
+else
+    check "VRAM" skip "not measured on ${GPU_VENDOR:-unknown} GPUs"
+fi
+
+_min_disk="${MIN_DISK_GB:-20}"
+if [[ ! "${DISK_AVAIL_GB:-}" =~ ^[0-9]+$ ]]; then
+    check "Disk free" warn "could not determine free space on $HOME"
+elif (( DISK_AVAIL_GB < _min_disk )); then
+    check "Disk free" fail "${DISK_AVAIL_GB} GB free on $HOME, ${_min_disk} GB required — model downloads will fail"
+else
+    check "Disk free" pass "${DISK_AVAIL_GB} GB free (min ${_min_disk} GB)"
+fi
 
 # ---------------------------------------------------------------------------
 # Category: Models
@@ -259,16 +303,18 @@ fi
 # Summary + report generation
 # ---------------------------------------------------------------------------
 total=${#AWB_CHECK_NAMES[@]}
-passed=0; failed=0; skipped=0
+passed=0; warned=0; failed=0; skipped=0
 for s in "${AWB_CHECK_STATUS[@]}"; do
     case "$s" in
         pass) passed=$((passed+1)) ;;
+        warn) warned=$((warned+1)) ;;
         fail) failed=$((failed+1)) ;;
         skip) skipped=$((skipped+1)) ;;
     esac
 done
 
-echo -e "\n${C_BOLD}Summary:${C_RESET} ${passed} passed, ${failed} failed, ${skipped} skipped (of ${total})"
+summary_line="${passed} passed, ${warned} warned, ${failed} failed, ${skipped} skipped (of ${total})"
+echo -e "\n${C_BOLD}Summary:${C_RESET} ${summary_line}"
 
 ensure_dir "${AWB_ROOT}/reports"
 
@@ -286,6 +332,7 @@ _json_escape() {
     echo "{"
     echo "  \"total\": ${total},"
     echo "  \"passed\": ${passed},"
+    echo "  \"warned\": ${warned},"
     echo "  \"failed\": ${failed},"
     echo "  \"skipped\": ${skipped},"
     echo "  \"checks\": ["
@@ -305,10 +352,15 @@ _json_escape() {
     echo "# AI-Workbench Doctor Report"
     echo
     echo "Generated: $(date '+%Y-%m-%d %H:%M:%S')"
-    echo "Summary: ${passed} passed, ${failed} failed, ${skipped} skipped (of ${total})"
+    echo "Summary: ${summary_line}"
     echo
     for i in "${!AWB_CHECK_NAMES[@]}"; do
-        mark="✔"; [[ "${AWB_CHECK_STATUS[$i]}" == "fail" ]] && mark="✘"; [[ "${AWB_CHECK_STATUS[$i]}" == "skip" ]] && mark="⚠"
+        case "${AWB_CHECK_STATUS[$i]}" in
+            fail) mark="✘" ;;
+            warn) mark="⚠" ;;
+            skip) mark="○" ;;
+            *)    mark="✔" ;;
+        esac
         echo "- ${mark} ${AWB_CHECK_NAMES[$i]}${AWB_CHECK_DETAIL[$i]:+ — ${AWB_CHECK_DETAIL[$i]}}"
     done
 } > "${AWB_ROOT}/reports/doctor.md"

@@ -25,4 +25,8 @@ fi
 export CHECK_MARK="${C_GREEN}✔${C_RESET}"
 export CROSS_MARK="${C_RED}✘${C_RESET}"
 export WARN_MARK="${C_YELLOW}⚠${C_RESET}"
+# Distinct from WARN_MARK on purpose: doctor.sh marks deliberately-inapplicable
+# checks (no such hardware, feature off in config.env) as skipped, and reusing
+# the warning glyph made those read as unresolved problems.
+export SKIP_MARK="${C_DIM}○${C_RESET}"
 export ARROW="${C_CYAN}➜${C_RESET}"
