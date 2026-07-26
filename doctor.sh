@@ -51,19 +51,79 @@ check() {
     esac
 }
 
+# _cmd_version <cmd> — best-effort one-line version string, empty if none.
+#
+# Deliberately forgiving: this is diagnostic detail, not a check, so nothing
+# here may fail a run or hang one. `timeout` guards tools that block without a
+# tty, and the digit test rejects tools whose --version prints something else
+# entirely (intel_gpu_top answers with its one-line description).
+_cmd_version() {
+    local cmd="$1" out=""
+    out="$(timeout 5 "$cmd" --version 2>/dev/null | head -1)"
+    [[ -z "$out" ]] && out="$(timeout 5 "$cmd" -version 2>/dev/null | head -1)"
+    [[ "$out" =~ [0-9]+\.[0-9]+ ]] || out=""
+    # Trim the tails that make these lines long without making them
+    # informative: curl's library inventory after "(", pip's install path
+    # after " from " (already covered by the resolved path we print anyway).
+    out="${out%% (*}"
+    out="${out%% from *}"
+    printf '%s' "$out" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//' | cut -c1-60
+}
+
+# _venv_pkg_version <venv> <package> — prints the installed version of <package>
+# inside ~/venvs/<venv>, returns non-zero if it isn't installed there.
+_venv_pkg_version() {
+    local venv="$1" pkg="$2" py="$HOME/venvs/$1/bin/python" ver=""
+    [[ -x "$py" ]] || return 1
+    ver="$(timeout 30 "$py" -c "import importlib.metadata as m; print(m.version('${pkg}'))" 2>/dev/null)"
+    [[ -n "$ver" ]] || return 1
+    printf '%s' "$ver"
+}
+
 check_cmd() {
-    local label="$1" cmd="$2"
-    if has_cmd "$cmd"; then check "$label" pass; else check "$label" fail "'$cmd' not found"; fi
+    local label="$1" cmd="$2" path ver
+    if path="$(command -v "$cmd" 2>/dev/null)"; then
+        # Record the resolved path alongside the version: "which binary am I
+        # actually getting" is the question a PATH shadowed by a stray venv or
+        # a hand-built /usr/local copy makes you ask, and the answer belongs in
+        # the report rather than in a follow-up round trip.
+        ver="$(_cmd_version "$cmd")"
+        check "$label" pass "${ver:+${ver} — }${path}"
+    else
+        check "$label" fail "'$cmd' not found on PATH"
+    fi
 }
 
 check_file() {
-    local label="$1" path="$2"
-    if [[ -e "$path" ]]; then check "$label" pass; else check "$label" fail "$path missing"; fi
+    local label="$1" path="$2" detail="$2" target bytes size
+    if [[ ! -e "$path" ]]; then
+        check "$label" fail "$path missing"
+        return
+    fi
+    # Everything install.sh drops in ~/ai/bin is a symlink into the build tree,
+    # so resolve it: "which build is this binary from" is the question that
+    # actually gets asked, and du on the link itself reports 0.
+    if [[ -L "$path" ]]; then
+        target="$(readlink -f "$path" 2>/dev/null)"
+        [[ -n "$target" && "$target" != "$path" ]] && detail="${path} -> ${target}"
+    fi
+    # Size only where it carries information. Printing "4,0K" beside a venv
+    # activate script is noise; printing it beside a 4.8GB model is not.
+    bytes="$(stat -Lc %s "$path" 2>/dev/null)"
+    if [[ "$bytes" =~ ^[0-9]+$ ]] && (( bytes >= 1048576 )); then
+        size="$(du -Lh "$path" 2>/dev/null | cut -f1)"
+        detail="${detail}${size:+ (${size})}"
+    fi
+    check "$label" pass "$detail"
 }
 
 check_true() {
-    local label="$1" cond="$2" detail="${3:-}"
-    if [[ "$cond" == "true" ]]; then check "$label" pass; else check "$label" fail "$detail"; fi
+    local label="$1" cond="$2" fail_detail="${3:-}" pass_detail="${4:-}"
+    if [[ "$cond" == "true" ]]; then
+        check "$label" pass "$pass_detail"
+    else
+        check "$label" fail "$fail_detail"
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -79,21 +139,25 @@ check_cmd "Ninja" ninja
 check_cmd "curl" curl
 check_cmd "wget" wget
 check_cmd "Docker" docker
-if has_cmd docker && docker compose version >/dev/null 2>&1; then
-    check "Docker Compose plugin" pass
+if has_cmd docker && compose_ver="$(docker compose version 2>/dev/null)"; then
+    check "Docker Compose plugin" pass "$compose_ver"
 else
     check "Docker Compose plugin" fail "run: sudo apt-get install docker-compose-plugin"
 fi
 check_cmd "Python 3" python3
-python3 -m venv --help >/dev/null 2>&1 && check "python3-venv module" pass || check "python3-venv module" fail "sudo apt-get install python3-venv"
+if python3 -m venv --help >/dev/null 2>&1; then
+    check "python3-venv module" pass "$(python3 --version 2>&1)"
+else
+    check "python3-venv module" fail "sudo apt-get install python3-venv"
+fi
 check_cmd "pip" pip3
 
 # ---------------------------------------------------------------------------
 # Category: Acceleration APIs
 # ---------------------------------------------------------------------------
 echo -e "\n${C_BOLD}Acceleration${C_RESET}"
-check_true "Vulkan" "${HAS_VULKAN:-false}" "no functional Vulkan device detected"
-check_true "OpenCL" "${HAS_OPENCL:-false}" "no OpenCL platform detected"
+check_true "Vulkan" "${HAS_VULKAN:-false}" "no functional Vulkan device detected" "${VULKAN_DEVICE:-device name unavailable}"
+check_true "OpenCL" "${HAS_OPENCL:-false}" "no OpenCL platform detected" "${OPENCL_DEVICE:-device name unavailable}"
 if [[ "${PLATFORM_TARGET:-}" == "nvidia" ]]; then
     check_true "CUDA" "${HAS_CUDA:-false}" "nvidia-smi not functional"
 else
@@ -105,9 +169,12 @@ else
     check "ROCm" skip "not applicable on ${PLATFORM_TARGET:-this} platform"
 fi
 if [[ "${PLATFORM_TARGET:-}" == "intel" ]]; then
-    check_true "Intel Arc / iGPU detected" "$( [[ "${GPU_VENDOR:-}" == "Intel" ]] && echo true || echo false )"
+    check_true "Intel Arc / iGPU detected" \
+        "$( [[ "${GPU_VENDOR:-}" == "Intel" ]] && echo true || echo false )" \
+        "PLATFORM_TARGET is intel but GPU_VENDOR is '${GPU_VENDOR:-unset}'" \
+        "${GPU_MODEL:-unknown}"
     if [[ "${HAS_INTEL_NPU:-false}" == "true" ]]; then
-        check_true "Intel NPU" "${HAS_INTEL_NPU}"
+        check_true "Intel NPU" "${HAS_INTEL_NPU}" "" "accel device present"
     else
         check "Intel NPU" skip "no NPU present on this CPU"
     fi
@@ -144,15 +211,29 @@ if is_true "${INSTALL_WHISPER:-true}"; then
 else
     check "whisper-cli binary" skip "INSTALL_WHISPER disabled in config.env"
 fi
+# These report the installed package version, not just the venv's existence:
+# an empty venv passes a directory test while every import in it fails.
 if is_true "${INSTALL_OPENVINO:-true}"; then
-    [[ -d "$HOME/venvs/openvino" ]] && check "OpenVINO venv" pass || check "OpenVINO venv" fail "run python/create_envs.sh"
+    if [[ ! -d "$HOME/venvs/openvino" ]]; then
+        check "OpenVINO venv" fail "$HOME/venvs/openvino missing — run: awb install --only python"
+    elif _ver="$(_venv_pkg_version openvino openvino)"; then
+        check "OpenVINO venv" pass "openvino ${_ver}"
+    else
+        check "OpenVINO venv" warn "venv exists but 'openvino' is not installed in it — run: awb install --only platform"
+    fi
 else
     check "OpenVINO venv" skip "INSTALL_OPENVINO disabled in config.env"
 fi
 if is_true "${INSTALL_ONNXRUNTIME:-true}"; then
-    [[ -d "$HOME/venvs/vision" ]] && check "ONNX Runtime venv (vision)" pass || check "ONNX Runtime venv" fail "run python/create_envs.sh"
+    if [[ ! -d "$HOME/venvs/vision" ]]; then
+        check "ONNX Runtime venv (vision)" fail "$HOME/venvs/vision missing — run: awb install --only python"
+    elif _ver="$(_venv_pkg_version vision onnxruntime-openvino)"; then
+        check "ONNX Runtime venv (vision)" pass "onnxruntime-openvino ${_ver}"
+    else
+        check "ONNX Runtime venv (vision)" warn "venv exists but 'onnxruntime-openvino' is not installed in it — run: awb install --only runtimes"
+    fi
 else
-    check "ONNX Runtime venv" skip "INSTALL_ONNXRUNTIME disabled in config.env"
+    check "ONNX Runtime venv (vision)" skip "INSTALL_ONNXRUNTIME disabled in config.env"
 fi
 
 # ---------------------------------------------------------------------------
@@ -186,8 +267,9 @@ if has_cmd docker; then
         # A service the user asked for in config.env but which isn't running is
         # a discrepancy between intent and reality — that's "warn". Only a
         # service nobody asked for is genuinely not applicable ("skip").
-        if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$svc"; then
-            check "Service running: ${svc}" pass
+        svc_status="$(docker ps --filter "name=^${svc}$" --format '{{.Status}}' 2>/dev/null | head -1)"
+        if [[ -n "$svc_status" ]]; then
+            check "Service running: ${svc}" pass "$svc_status"
         elif is_true "$flag"; then
             check "Service running: ${svc}" warn "enabled in config.env but not running — start it with: awb install --only services"
         else
@@ -344,7 +426,9 @@ _json_escape() {
     s="${s//$'\n'/\\n}"
     s="${s//$'\t'/\\t}"
     s="${s//$'\r'/\\r}"
-    printf '%s' "$s" | tr -d '[\000-\010\013\014\016-\037]'
+    # See json_kv in lib/utils.sh: no enclosing [] — tr would delete them
+    # literally, stripping brackets out of device names and paths.
+    printf '%s' "$s" | tr -d '\000-\010\013\014\016-\037'
 }
 {
     echo "{"

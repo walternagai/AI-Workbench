@@ -152,6 +152,10 @@ json_kv() {
     value="${value//$'\r'/\\r}"
     # Strip remaining control characters (0x00–0x1F except those already escaped).
     # Uses printf instead of echo -n to avoid reinterpreting backslash sequences.
-    value="$(printf '%s' "$value" | tr -d '[\000-\010\013\014\016-\037]')"
+    # No enclosing [] on the tr set: tr has no bracket-grouping syntax, so they
+    # were being read as literal characters to delete — which silently ate the
+    # brackets out of every PCI device name lspci reports, e.g.
+    # "Meteor Lake-P [Intel Arc Graphics]".
+    value="$(printf '%s' "$value" | tr -d '\000-\010\013\014\016-\037')"
     printf '  "%s": "%s"' "$key" "$value"
 }

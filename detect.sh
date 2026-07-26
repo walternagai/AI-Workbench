@@ -133,9 +133,16 @@ detect_vulkan() {
 
 detect_opencl() {
     export HAS_OPENCL="false"
+    export OPENCL_DEVICE=""
     if has_cmd clinfo; then
-        if clinfo -l 2>/dev/null | grep -q .; then
+        local listing
+        listing=$(clinfo -l 2>/dev/null)
+        if [[ -n "$listing" ]]; then
             export HAS_OPENCL="true"
+            # Mirrors VULKAN_DEVICE: name the device rather than only asserting
+            # one exists, so reports say which accelerator answered.
+            OPENCL_DEVICE=$(echo "$listing" | sed -n 's/.*Device #0: *//p' | head -1)
+            [[ -n "$OPENCL_DEVICE" ]] || OPENCL_DEVICE=$(echo "$listing" | sed -n 's/^Platform #0: *//p' | head -1)
         fi
     fi
 }
@@ -235,6 +242,7 @@ $(json_kv has_nvidia_gpu "$HAS_NVIDIA_GPU"),
 $(json_kv has_amd_gpu "$HAS_AMD_GPU"),
 $(json_kv has_vulkan "$HAS_VULKAN"),
 $(json_kv vulkan_device "${VULKAN_DEVICE:-}"),
+$(json_kv opencl_device "${OPENCL_DEVICE:-}"),
 $(json_kv has_opencl "$HAS_OPENCL"),
 $(json_kv has_cuda "$HAS_CUDA"),
 $(json_kv cuda_version "${CUDA_VERSION:-}"),

@@ -107,3 +107,12 @@ teardown() {
     run json_kv key "$(printf 'a\x01b')"
     [ "$output" = '  "key": "ab"' ]
 }
+
+# Regression: the control-character strip was written as tr -d '[\000-...]'.
+# tr has no bracket-grouping syntax, so the [] were deleted as literals — and
+# lspci names every GPU with brackets, so hardware.json reported the model of
+# this machine's iGPU as "Meteor Lake-P Intel Arc Graphics".
+@test "json_kv: keeps square brackets, which lspci device names depend on" {
+    run json_kv gpu_model 'Meteor Lake-P [Intel Arc Graphics]'
+    [ "$output" = '  "gpu_model": "Meteor Lake-P [Intel Arc Graphics]"' ]
+}
