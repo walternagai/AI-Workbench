@@ -16,17 +16,17 @@ AWB_WHISPER_MODELS_DIR="${AI_HOME:-$HOME/ai}/models/whisper"
 _awb_model_catalog() {
     case "$1" in
         gemma3)
-            echo "google/gemma-3-4b-it-qat-q4_0-gguf|gemma-3-4b-it-q4_0.gguf|~2.5GB|Gemma 3, quantized for low-memory systems" ;;
+            echo "google/gemma-3-4b-it-qat-q4_0-gguf|gemma-3-4b-it-q4_0.gguf|~3.2GB|Gemma 3, quantized for low-memory systems (gated repo: accept the license at hf.co/google/gemma-3-4b-it-qat-q4_0-gguf first)" ;;
         gemma3-e2b)
-            echo "google/gemma-3n-E2B-it-GGUF|gemma-3n-E2B-it-Q8_0.gguf|~2GB|Gemma E2B Q8_0 — recommended for memory-constrained iGPU setups" ;;
+            echo "ggml-org/gemma-3n-E2B-it-GGUF|gemma-3n-E2B-it-Q8_0.gguf|~4.8GB|Gemma E2B Q8_0 — recommended for memory-constrained iGPU setups" ;;
         qwen3)
-            echo "Qwen/Qwen3-8B-GGUF|qwen3-8b-q4_k_m.gguf|~5GB|Qwen3 8B, general purpose" ;;
+            echo "Qwen/Qwen3-8B-GGUF|Qwen3-8B-Q4_K_M.gguf|~5GB|Qwen3 8B, general purpose" ;;
         qwen3-4b)
-            echo "Qwen/Qwen3-4B-GGUF|qwen3-4b-q4_k_m.gguf|~2.5GB|Qwen3 4B, lighter footprint" ;;
+            echo "Qwen/Qwen3-4B-GGUF|Qwen3-4B-Q4_K_M.gguf|~2.5GB|Qwen3 4B, lighter footprint" ;;
         phi4)
-            echo "microsoft/phi-4-gguf|phi-4-q4_k_m.gguf|~9GB|Phi-4, strong reasoning-per-parameter" ;;
+            echo "microsoft/phi-4-gguf|phi-4-Q4_K.gguf|~9GB|Phi-4, strong reasoning-per-parameter" ;;
         deepseek-coder-v2)
-            echo "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct-GGUF|deepseek-coder-v2-lite-instruct-q4_k_m.gguf|~10GB|Code-specialized" ;;
+            echo "bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF|DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf|~10.4GB|Code-specialized" ;;
         *)
             return 1 ;;
     esac
