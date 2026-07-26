@@ -9,17 +9,23 @@ jobs:
     name: ShellCheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Ensure ShellCheck is available
         run: command -v shellcheck || { sudo apt-get update && sudo apt-get install -y shellcheck; }
 
       - name: Lint all shell scripts
-        # --severity=warning: the codebase has a handful of pre-existing
-        # "info"-level style notes (SC2015 "A && B || C", SC2021 tr []
-        # classes, SC2317 trap-invoked "unreachable" code) that are
-        # reviewed, deliberate idioms rather than bugs. Warnings and
-        # errors still fail the build.
+        # --severity=warning: warnings and errors fail the build; the
+        # remaining "info"-level notes are SC2015 ("A && B || C") and SC2329
+        # (functions only invoked via trap, so they look unreachable).
+        #
+        # SC2021 ("don't use [] around tr classes") used to be listed here as
+        # a reviewed idiom too. It was not: tr has no bracket-grouping syntax,
+        # so those brackets were being deleted as literal characters, silently
+        # stripping [] out of every lspci device name written to
+        # hardware.json. Fixed in json_kv and doctor.sh's _json_escape, and
+        # covered by tests/bats/lib_utils.bats. Re-check anything on this list
+        # before assuming it is noise.
         run: |
           mapfile -t files < <(find . -name '*.sh' -not -path './.git/*' | sort)
           files+=(scripts/awb)
@@ -29,7 +35,7 @@ jobs:
     name: pytest (benchmarks)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-python@v5
         with:
@@ -45,7 +51,7 @@ jobs:
     name: bats (lib/ unit tests)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Ensure bats is available
         run: command -v bats || { sudo apt-get update && sudo apt-get install -y bats; }
