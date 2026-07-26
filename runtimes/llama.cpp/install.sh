@@ -71,6 +71,20 @@ install_llama_cpp_service() {
     local unit_dir="$HOME/.config/systemd/user"
     ensure_dir "$unit_dir"
 
+    # The model path is resolved here, at write time, and baked into the unit.
+    # It used to be emitted as a literal \${AWB_DEFAULT_GGUF:-model.gguf} for
+    # systemd to expand, which cannot work twice over: systemd supports only
+    # $VAR / ${VAR}, not bash's ${VAR:-default}, and nothing puts the variable
+    # in the unit's environment anyway. The result passed through verbatim,
+    # llama-server exited with "model loading error", and Restart=on-failure
+    # turned that into a crash loop the moment anyone enabled the service.
+    local gguf="${AWB_DEFAULT_GGUF:-}"
+    [[ -n "$gguf" ]] || fail_loud "AWB_DEFAULT_GGUF is not set in config.env, so the llama-server unit would have no model to load. Set it, or set INSTALL_LLAMACPP_SERVICE=false."
+    local model_path="${AI_HOME:-$HOME/ai}/models/gguf/${gguf}"
+
+    # Deliberately not checking that the file exists: section_runtimes runs
+    # before section_models, so on a clean install the model is downloaded
+    # after this unit is written.
     cat > "${unit_dir}/llama-server.service" <<EOF
 [Unit]
 Description=llama.cpp inference server (AI-Workbench)
@@ -78,7 +92,7 @@ After=network.target
 
 [Service]
 ExecStart=${AI_HOME:-$HOME/ai}/bin/llama-server \\
-    --model ${AI_HOME:-$HOME/ai}/models/gguf/\${AWB_DEFAULT_GGUF:-model.gguf} \\
+    --model ${model_path} \\
     --host 127.0.0.1 --port 8080 \\
     --ctx-size 4096
 Restart=on-failure
