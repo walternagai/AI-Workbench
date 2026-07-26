@@ -21,6 +21,10 @@ source "${AWB_ROOT}/lib/downloader.sh"   # for _awb_hf_cli (Models category)
 
 load_env "${AWB_ROOT}/config.env" false
 
+# Optional local overrides, gitignored. Secrets belong here rather than in the
+# tracked config.env, which is public. Loaded second so its values win.
+load_env "${AWB_ROOT}/config.local.env" false
+
 safe_source "${AWB_ROOT}/detect.sh"
 declare -F run_all_detections &>/dev/null || fail_loud "detect.sh loaded but run_all_detections() not found"
 declare -F resolve_platform_target &>/dev/null || fail_loud "detect.sh loaded but resolve_platform_target() not found"

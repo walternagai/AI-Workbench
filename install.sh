@@ -28,6 +28,10 @@ source "${AWB_ROOT}/lib/validation.sh"
 
 load_env "${AWB_ROOT}/config.env" true
 
+# Optional local overrides, gitignored. Secrets belong here rather than in the
+# tracked config.env, which is public. Loaded second so its values win.
+load_env "${AWB_ROOT}/config.local.env" false
+
 # ---------------------------------------------------------------------------
 # CLI flags (menu-style partial re-execution; see also `make install-*`)
 # ---------------------------------------------------------------------------

@@ -216,3 +216,25 @@ teardown() {
     run ensure_prereq_dirs
     [ "$status" -eq 0 ]
 }
+
+# --- config.local.env override ------------------------------------------------
+# install.sh/doctor.sh/update.sh load config.env then config.local.env, so
+# secrets can live in a gitignored file instead of the tracked, public one.
+# The mechanism is entirely "load_env is called twice and the second wins".
+
+@test "load_env: a local override file wins over the base config" {
+    printf 'WEBUI_SECRET_KEY=change-me\nINSTALL_OLLAMA=true\n' > "${AWB_ROOT}/config.env"
+    printf 'WEBUI_SECRET_KEY=a-real-secret\n'                  > "${AWB_ROOT}/config.local.env"
+    load_env "${AWB_ROOT}/config.env" true
+    load_env "${AWB_ROOT}/config.local.env" false
+    [ "$WEBUI_SECRET_KEY" = "a-real-secret" ]
+    # Keys the override does not mention must survive.
+    [ "$INSTALL_OLLAMA" = "true" ]
+}
+
+@test "load_env: absence of the local override leaves the base config intact" {
+    printf 'WEBUI_SECRET_KEY=change-me\n' > "${AWB_ROOT}/config.env"
+    load_env "${AWB_ROOT}/config.env" true
+    load_env "${AWB_ROOT}/config.local.env" false
+    [ "$WEBUI_SECRET_KEY" = "change-me" ]
+}

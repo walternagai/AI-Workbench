@@ -144,6 +144,12 @@ to build, which Docker services to start, validation thresholds, default
 model — is a flag here, read via `is_true()`. This is what makes selective
 re-execution meaningful: flip a flag, re-run just that section.
 
+`config.env` is **tracked and the repo is public**, so it holds placeholders
+(`change-me`) rather than real secrets. `install.sh`, `doctor.sh` and
+`update.sh` each load `config.local.env` immediately afterwards — gitignored,
+optional, and loaded second so its values win. Real keys go there; see
+`config.local.env.example`.
+
 **Reports & logs**: `reports/hardware.json`, `reports/doctor.{json,md}`,
 `reports/install_report.md` are generated artifacts (gitignored); `logs/installation.log`
 is the full timestamped trail. Both directories are created unconditionally

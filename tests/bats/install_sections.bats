@@ -112,3 +112,33 @@ _section_names() {
         [[ "$names" == *" ${target} "* ]] || { echo "Makefile target install-${target} is not a section"; return 1; }
     done < <(grep -oE '^install-[a-z]+:' "${AWB_ROOT}/Makefile" | sed 's/^install-//; s/://')
 }
+
+@test "every entrypoint loads config.local.env after config.env" {
+    # Order matters: loaded first, the tracked defaults would clobber the
+    # overrides. Loaded not at all, a secret set there is silently ignored and
+    # the service starts with 'change-me'.
+    for f in install.sh doctor.sh update.sh; do
+        base="$(grep -n 'load_env .*config\.env' "${AWB_ROOT}/${f}" | head -1 | cut -d: -f1)"
+        local_="$(grep -n 'load_env .*config\.local\.env' "${AWB_ROOT}/${f}" | head -1 | cut -d: -f1)"
+        [ -n "$local_" ] || { echo "${f} never loads config.local.env"; return 1; }
+        [ "$local_" -gt "$base" ] || { echo "${f} loads config.local.env at line ${local_}, before config.env at ${base}"; return 1; }
+    done
+}
+
+@test "config.local.env is gitignored so secrets cannot be committed" {
+    run git -C "$AWB_ROOT" check-ignore config.local.env
+    [ "$status" -eq 0 ] || { echo "config.local.env is NOT gitignored — a secret written there would be committed"; return 1; }
+}
+
+@test "the tracked config.env holds no real secret" {
+    # Placeholders are fine and expected; anything that looks like a generated
+    # key in a public, committed file is not.
+    while read -r line; do
+        value="${line#*=}"
+        case "$value" in
+            change-me|awb|"") continue ;;
+        esac
+        [[ ! "$value" =~ ^[0-9a-fA-F]{32,}$ ]] \
+            || { echo "config.env line looks like a real secret: ${line%%=*}=<redacted>"; return 1; }
+    done < <(grep -iE '^[A-Z_]*(SECRET|PASSWORD|TOKEN|KEY)[A-Z_]*=' "${AWB_ROOT}/config.env")
+}

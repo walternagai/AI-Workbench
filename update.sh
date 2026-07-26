@@ -18,6 +18,10 @@ source "${AWB_ROOT}/lib/downloader.sh"
 
 load_env "${AWB_ROOT}/config.env" false
 
+# Optional local overrides, gitignored. Secrets belong here rather than in the
+# tracked config.env, which is public. Loaded second so its values win.
+load_env "${AWB_ROOT}/config.local.env" false
+
 UPDATE_SELF=true
 UPDATE_RUNTIMES=false
 UPDATE_MODELS=false
