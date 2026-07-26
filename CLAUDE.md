@@ -24,6 +24,8 @@ is unit-tested with pytest.
 ./update.sh                           # update framework + installed runtimes/models
 make install | make doctor | make detect | make update | make monitor | make info
 make install-cli / install-platform / install-python / install-runtimes / install-models / install-services / install-benchmark
+make test                             # everything CI runs: shellcheck + bats + pytest
+make test-shell | test-bats | test-python
 make model-install NAME=gemma3-e2b
 make runtime-install NAME=llama.cpp
 make benchmark TARGET=llm ARGS='path/to/model.gguf'

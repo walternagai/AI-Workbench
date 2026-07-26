@@ -1,6 +1,7 @@
 .PHONY: install doctor detect update monitor info \
         install-cli install-platform install-python install-runtimes install-models install-services install-benchmark \
-        model-install model-list runtime-install benchmark clean-logs clean-reports help
+        model-install model-list runtime-install benchmark clean-logs clean-reports help \
+        test test-shell test-bats test-python
 
 SHELL := /bin/bash
 
@@ -26,6 +27,11 @@ help:
 	@echo "  make model-list"
 	@echo "  make runtime-install NAME=llama.cpp"
 	@echo "  make benchmark TARGET=llm ARGS='path/to/model.gguf'"
+	@echo ""
+	@echo "  make test                 Everything CI runs (shellcheck + bats + pytest)"
+	@echo "  make test-shell           ShellCheck only"
+	@echo "  make test-bats            Bash unit tests only"
+	@echo "  make test-python          pytest + coverage only"
 	@echo ""
 	@echo "  make clean-logs           Remove logs/*"
 	@echo "  make clean-reports        Remove reports/*"
@@ -80,6 +86,30 @@ runtime-install:
 
 benchmark:
 	./scripts/awb benchmark $(TARGET) $(ARGS)
+
+# The three checks below mirror the three jobs in .github/workflows/ci.yml —
+# keep them in step, so a green `make test` means a green CI. Missing tooling
+# aborts with the install line rather than skipping the check: a test run that
+# quietly covers less than it claims is worse than no test run.
+test: test-shell test-bats test-python
+	@echo "All checks passed."
+
+test-shell:
+	@command -v shellcheck >/dev/null \
+	  || { echo "shellcheck not installed: sudo apt install shellcheck" >&2; exit 1; }
+	@mapfile -t files < <(find . -name '*.sh' -not -path './.git/*' | sort); \
+	 files+=(scripts/awb); \
+	 shellcheck -x --severity=warning "$${files[@]}"
+
+test-bats:
+	@command -v bats >/dev/null \
+	  || { echo "bats not installed: sudo apt install bats" >&2; exit 1; }
+	bats tests/bats/
+
+test-python:
+	@command -v pytest >/dev/null \
+	  || { echo "pytest not installed: pip install -r requirements-test.txt" >&2; exit 1; }
+	pytest --cov
 
 clean-logs:
 	rm -f logs/*.log logs/*.log.*
