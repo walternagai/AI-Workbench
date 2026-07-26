@@ -183,20 +183,38 @@ if has_cmd docker; then
             awb-chromadb)   flag="${INSTALL_CHROMADB:-false}" ;;
             awb-postgres)   flag="${INSTALL_POSTGRES:-false}" ;;
         esac
+        # A service the user asked for in config.env but which isn't running is
+        # a discrepancy between intent and reality — that's "warn". Only a
+        # service nobody asked for is genuinely not applicable ("skip").
         if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$svc"; then
             check "Service running: ${svc}" pass
         elif is_true "$flag"; then
-            check "Service running: ${svc}" skip "enabled in config.env but not started"
+            check "Service running: ${svc}" warn "enabled in config.env but not running — start it with: awb install --only services"
         else
             check "Service running: ${svc}" skip "disabled in config.env"
         fi
     done
+elif is_true "${INSTALL_OPENWEBUI:-true}" || is_true "${INSTALL_QDRANT:-false}" \
+  || is_true "${INSTALL_CHROMADB:-false}" || is_true "${INSTALL_POSTGRES:-false}"; then
+    check "Services" warn "Docker not installed, but services are enabled in config.env"
 else
-    check "Services" skip "Docker not installed"
+    check "Services" skip "Docker not installed, and no services enabled in config.env"
 fi
-systemctl --user is-active --quiet llama-server 2>/dev/null \
-    && check "llama-server systemd service" pass \
-    || check "llama-server systemd service" skip "not enabled (systemctl --user enable --now llama-server)"
+
+# Three distinct states, which a bare is-active test used to collapse into one
+# "skipped": never asked for (skip), asked for and installed but not running
+# (warn — install.sh writes the unit but deliberately does not enable it), and
+# asked for with no unit on disk at all (warn, a different remedy).
+_llama_unit="$HOME/.config/systemd/user/llama-server.service"
+if ! is_true "${INSTALL_LLAMACPP_SERVICE:-true}"; then
+    check "llama-server systemd service" skip "INSTALL_LLAMACPP_SERVICE disabled in config.env"
+elif [[ ! -f "$_llama_unit" ]]; then
+    check "llama-server systemd service" warn "enabled in config.env but no unit at ${_llama_unit} — run: awb install --only runtimes"
+elif systemctl --user is-active --quiet llama-server 2>/dev/null; then
+    check "llama-server systemd service" pass "active"
+else
+    check "llama-server systemd service" warn "unit installed but not running — start it with: systemctl --user enable --now llama-server"
+fi
 
 # ---------------------------------------------------------------------------
 # Category: Security
