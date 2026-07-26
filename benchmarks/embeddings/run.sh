@@ -7,7 +7,7 @@ AWB_ROOT="${AWB_ROOT:?must be sourced from install.sh}"
 # (--model, --batch-size, --iterations), per `awb benchmark <target> [args...]`.
 benchmark_embeddings() {
     local venv="$HOME/venvs/rag"
-    [[ -d "$venv" ]] || fail_loud "rag venv missing; run python/create_envs.sh first."
+    [[ -d "$venv" ]] || fail_loud "rag venv missing at ${venv}. Run './install.sh --only python' first, or './install.sh' for a full install."
 
     log_step "Benchmarking embedding generation"
     # shellcheck disable=SC1091

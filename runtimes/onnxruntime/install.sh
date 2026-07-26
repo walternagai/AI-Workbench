@@ -16,7 +16,7 @@ install_onnxruntime() {
     log_step "Installing ONNX Runtime"
 
     local venv="$HOME/venvs/vision"
-    [[ -d "$venv" ]] || fail_loud "vision venv missing; run python/create_envs.sh first."
+    [[ -d "$venv" ]] || fail_loud "vision venv missing at ${venv}. Run './install.sh --only python' first, or './install.sh' for a full install."
 
     local package
     package="$(_onnxruntime_package)"

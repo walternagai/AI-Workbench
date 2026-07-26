@@ -9,7 +9,7 @@ install_intel_openvino() {
 
     local venv="$HOME/venvs/openvino"
     if [[ ! -d "$venv" ]]; then
-        fail_loud "openvino venv not found at $venv. Run python/create_envs.sh before platforms/intel/openvino.sh."
+        fail_loud "openvino venv not found at ${venv}. Run './install.sh --only python' first, or './install.sh' for a full install."
     fi
 
     # shellcheck disable=SC1091

@@ -8,7 +8,7 @@ install_openvino_runtime() {
     log_step "Installing OpenVINO GenAI runtime"
 
     local venv="$HOME/venvs/openvino"
-    [[ -d "$venv" ]] || fail_loud "openvino venv missing; run python/create_envs.sh first."
+    [[ -d "$venv" ]] || fail_loud "openvino venv missing at ${venv}. Run './install.sh --only python' first, or './install.sh' for a full install."
 
     # shellcheck disable=SC1091
     source "$venv/bin/activate"

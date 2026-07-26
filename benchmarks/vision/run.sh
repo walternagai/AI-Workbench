@@ -10,7 +10,7 @@ benchmark_vision() {
     shift
     local venv="$HOME/venvs/vision"
 
-    [[ -d "$venv" ]] || fail_loud "vision venv missing; run python/create_envs.sh first."
+    [[ -d "$venv" ]] || fail_loud "vision venv missing at ${venv}. Run './install.sh --only python' first, or './install.sh' for a full install."
     [[ -f "$model_path" ]] || fail_loud "Model not found: $model_path"
 
     log_step "Benchmarking vision inference"
