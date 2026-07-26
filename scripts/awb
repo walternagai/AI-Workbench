@@ -19,7 +19,11 @@
 #   awb benchmark <llm|whisper|vision|embeddings> [args...]
 set -euo pipefail
 
-AWB_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve through symlinks before deriving AWB_ROOT. This script is meant to be
+# linked into a PATH directory (ln -s .../scripts/awb ~/.local/bin/awb), and
+# BASH_SOURCE[0] is the symlink's own path, not its target — so a plain dirname
+# puts AWB_ROOT in ~/.local and every source below fails on a missing lib/.
+AWB_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 export AWB_ROOT
 
 # shellcheck source=lib/colors.sh
