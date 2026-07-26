@@ -24,8 +24,7 @@ is unit-tested with pytest.
 ./update.sh                           # update framework + installed runtimes/models
 make install | make doctor | make detect | make update | make monitor | make info
 make install-cli / install-platform / install-python / install-runtimes / install-models / install-services / install-benchmark
-make test                             # everything CI runs: shellcheck + bats + pytest
-make test-shell | test-bats | test-python
+make test                             # everything CI runs — see Tests below
 make model-install NAME=gemma3-e2b
 make runtime-install NAME=llama.cpp
 make benchmark TARGET=llm ARGS='path/to/model.gguf'
@@ -37,30 +36,42 @@ scripts/awb runtime install|update|remove <name>
 scripts/awb benchmark <llm|whisper|vision|embeddings> [args...]
 ```
 
-Python side (benchmark scripts only):
+## Tests
+
+`make test` runs everything: ShellCheck, bats, then pytest. Each job in
+`.github/workflows/ci.yml` invokes the matching target, so **the commands live
+in the Makefile only** — do not paste a copy into the workflow, into this file,
+or into a script. The shellcheck invocation in particular has to append
+`scripts/awb` by hand (no `.sh` extension, so every glob and `find` pattern
+misses it), and a divergent copy passes while covering less.
 
 ```bash
-pip install -r requirements-test.txt      # pytest/pytest-cov + the benchmark libs the tests import
-pytest                                    # runs tests/, pythonpath is repo root (see pyproject.toml)
-pytest tests/test_bench_embeddings.py -k test_normal   # single test
-pytest --cov                              # coverage over benchmarks/, fail_under = 80
+make test          # all three, stops at the first failure
+make test-shell    # shellcheck -x --severity=warning over every script
+make test-bats     # bats tests/bats/
+make test-python   # pytest --cov
 ```
 
-Shell scripts are annotated with `# shellcheck source=` hints and linted in
-CI (`.github/workflows/ci.yml`) at `--severity=warning`; run the same check
-locally with:
+Missing tooling aborts with its install line rather than skipping the check.
+Install what you need with `sudo apt install shellcheck bats` and
+`pip install -r requirements-test.txt`.
+
+To run something narrower than a target, call the tool directly:
 
 ```bash
-shellcheck -x --severity=warning $(find . -name '*.sh' -not -path './.git/*') scripts/awb
+bats tests/bats/lib_utils.bats
+pytest tests/test_bench_embeddings.py -k test_normal
 ```
+
+Shell scripts are annotated with `# shellcheck source=` hints; the Makefile
+documents why `--severity=warning` is the threshold and which info-level notes
+were reviewed and dismissed.
+
+Python tests are pytest with `pythonpath` set to the repo root
+(`pyproject.toml`); coverage is over `benchmarks/` with `fail_under = 80`.
 
 Bash unit tests (no hardware, network or package manager needed) live under
 `tests/bats/` and run with [bats-core](https://github.com/bats-core/bats-core):
-
-```bash
-bats tests/bats/            # whole suite
-bats tests/bats/lib_utils.bats
-```
 
 | file | covers |
 | --- | --- |
