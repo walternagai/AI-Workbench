@@ -70,6 +70,7 @@ bats tests/bats/lib_utils.bats
 | `models_catalog.bats` | catalog shape, and agreement between the catalogs, `model_catalog_list` and `config.env` |
 | `install_sections.bats` | section wiring — a section must agree across its `RUN_*` default, `--only`, `--skip`, `main()`, `--help` and the Makefile |
 | `llamacpp_service.bats` | the generated systemd unit, asserted on the bytes written to a throwaway `$HOME` |
+| `awb_usage.bats` | `scripts/awb`'s help text — it is the script's own header comment printed back, so nothing else notices when the two drift; also asserts documented commands and `case` branches agree |
 
 Generated config (systemd units, JSON reports) is invisible to shellcheck,
 which lints the generator rather than its output — `systemd-analyze verify`

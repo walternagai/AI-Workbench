@@ -37,8 +37,13 @@ source "${AWB_ROOT}/lib/downloader.sh"
 
 load_env "${AWB_ROOT}/config.env" false
 
+# Print the header comment block (everything after the shebang up to the first
+# non-comment line) as the usage text. Deriving the end of the block instead of
+# hardcoding a line number keeps `set -euo pipefail` — and anything else added
+# below the header — out of the help output.
 _usage() {
-    sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    awk 'NR == 1 { next } !/^#/ { exit } { sub(/^# ?/, ""); print }' \
+        "$(readlink -f "${BASH_SOURCE[0]}")"
 }
 
 _need_detection() {
