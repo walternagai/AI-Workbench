@@ -246,8 +246,12 @@ main() {
     is_true "$RUN_SYSTEM_UPDATE" && section_system_update
     section_prereqs   # always runs, unconditionally, before any branch below
     is_true "$RUN_DETECT" && section_detect
-    is_true "$RUN_PLATFORM" && section_platform
+    # Python envs precede the platform stack: platforms/intel/openvino.sh pip
+    # installs into the 'openvino' venv that create_envs.sh builds, and
+    # runtimes/openvino layers on top of that. create_envs.sh itself needs only
+    # python3/python3-venv (checked in validate), never the platform stack.
     is_true "$RUN_PYTHON" && section_python
+    is_true "$RUN_PLATFORM" && section_platform
     is_true "$RUN_RUNTIMES" && section_runtimes
     is_true "$RUN_MODELS" && section_models
     is_true "$RUN_SERVICES" && section_services

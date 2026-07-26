@@ -65,8 +65,10 @@ the repo).
 ## Architecture
 
 **Orchestration flow** (`install.sh`): validate → apt system update →
-`section_prereqs` (unconditional) → `detect.sh` → platform module → Python
-envs → runtimes → default model → docker services → benchmark → report.
+`section_prereqs` (unconditional) → `detect.sh` → Python envs → platform
+module → runtimes → default model → docker services → benchmark → report.
+Python envs precede the platform module because `platforms/intel/openvino.sh`
+pip installs into the `openvino` venv that `python/create_envs.sh` creates.
 Every section is a function (`section_*`) gated by a `RUN_*` boolean that
 `--only`/`--skip` flip; re-running any subset is safe because every module is
 idempotent (see docs/PRINCIPLES.md §1–3).
