@@ -1,5 +1,5 @@
 .PHONY: install doctor detect update monitor info \
-        install-platform install-python install-runtimes install-models install-services install-benchmark \
+        install-cli install-platform install-python install-runtimes install-models install-services install-benchmark \
         model-install model-list runtime-install benchmark clean-logs clean-reports help
 
 SHELL := /bin/bash
@@ -14,10 +14,11 @@ help:
 	@echo "  make monitor              Live resource snapshot"
 	@echo "  make info                 Version + hardware summary"
 	@echo ""
+	@echo "  make install-cli          Re-install the awb CLI symlink"
 	@echo "  make install-platform     Re-run only the platform section"
 	@echo "  make install-python       Re-run only Python env creation"
 	@echo "  make install-runtimes     Re-run only runtime installation"
-	@echo "  make install-models       Re-run only default model download"
+	@echo "  make install-models       Re-run only model downloads"
 	@echo "  make install-services     Re-run only Docker services"
 	@echo "  make install-benchmark    Re-run only the benchmark"
 	@echo ""
@@ -46,6 +47,9 @@ monitor:
 
 info:
 	./scripts/awb info
+
+install-cli:
+	./install.sh --only cli
 
 install-platform:
 	./install.sh --only platform

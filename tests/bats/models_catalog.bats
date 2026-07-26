@@ -240,3 +240,23 @@ WHISPER_MODELS="whisper-tiny.en whisper-base.en whisper-small.en"
     [[ "$output" == *"REPO=some-org/some-repo"* ]]
     [[ "$output" == *"FILE=some-file.gguf"* ]]
 }
+
+@test "DEFAULT_WHISPER_MODEL in config.env exists in the whisper catalog" {
+    # section_models installs this alongside DEFAULT_MODEL whenever
+    # INSTALL_WHISPER is on, so a typo here aborts a clean install at the very
+    # last download. Empty is legal and means "build whisper.cpp without a model".
+    default="$(sed -n 's/^DEFAULT_WHISPER_MODEL=//p' "${AWB_ROOT}/config.env" | tr -d '"'"'"' ')"
+    [ -n "$default" ] || skip "DEFAULT_WHISPER_MODEL deliberately empty"
+    run _awb_whisper_catalog "$default"
+    [ "$status" -eq 0 ] || { echo "DEFAULT_WHISPER_MODEL='${default}' is not in the whisper catalog"; return 1; }
+}
+
+@test "DEFAULT_WHISPER_MODEL is the model benchmarks/whisper expects" {
+    # benchmarks/whisper/run.sh defaults to base.en; shipping a different
+    # default would leave `awb benchmark whisper` broken out of the box.
+    default="$(sed -n 's/^DEFAULT_WHISPER_MODEL=//p' "${AWB_ROOT}/config.env" | tr -d '"'"'"' ')"
+    [ -n "$default" ] || skip "DEFAULT_WHISPER_MODEL deliberately empty"
+    file="$(_awb_whisper_catalog "$default" | cut -d'|' -f2)"
+    grep -q "$file" "${AWB_ROOT}/benchmarks/whisper/run.sh" \
+        || { echo "benchmarks/whisper/run.sh does not reference '${file}'"; return 1; }
+}

@@ -2,9 +2,10 @@
 # install.sh — AI-Workbench Core v1.0 main installer.
 #
 # Flow (per CLAUDE.md's Architecture section):
-#   validate OS -> update system -> detect hardware -> run platform module
-#   -> create Python envs -> install runtimes -> download default model
-#   -> run benchmark -> generate final report
+#   validate OS -> update system -> detect hardware -> install the awb CLI
+#   -> create Python envs -> run platform module -> install runtimes
+#   -> download default + whisper models -> docker services -> benchmark
+#   -> generate final report
 #
 # Every step is idempotent: re-running install.sh after a partial failure
 # does not corrupt what already succeeded (selective re-execution, see
@@ -33,6 +34,7 @@ load_env "${AWB_ROOT}/config.env" true
 RUN_VALIDATE=true
 RUN_SYSTEM_UPDATE=true
 RUN_DETECT=true
+RUN_CLI=true
 RUN_PLATFORM=true
 RUN_PYTHON=true
 RUN_RUNTIMES=true
@@ -45,15 +47,16 @@ _print_help() {
     cat <<EOF
 Usage: install.sh [options]
 
-  --only <section>     Run only one section: validate|system|detect|platform|
-                        python|runtimes|models|services|benchmark|report
+  --only <section>     Run only one section: validate|system|detect|cli|
+                        platform|python|runtimes|models|services|benchmark|
+                        report
   --skip <section>      Skip one section (repeatable)
   -h, --help            Show this help
 EOF
 }
 
 _disable_all_sections() {
-    RUN_VALIDATE=false RUN_SYSTEM_UPDATE=false RUN_DETECT=false RUN_PLATFORM=false
+    RUN_VALIDATE=false RUN_SYSTEM_UPDATE=false RUN_DETECT=false RUN_CLI=false RUN_PLATFORM=false
     RUN_PYTHON=false RUN_RUNTIMES=false RUN_MODELS=false RUN_SERVICES=false
     RUN_BENCHMARK=false RUN_REPORT=false
 }
@@ -66,6 +69,7 @@ while [[ $# -gt 0 ]]; do
                 validate)  RUN_VALIDATE=true ;;
                 system)    RUN_SYSTEM_UPDATE=true ;;
                 detect)    RUN_DETECT=true ;;
+                cli)       RUN_CLI=true ;;
                 platform)  RUN_DETECT=true; RUN_PLATFORM=true ;;
                 python)    RUN_PYTHON=true ;;
                 runtimes)  RUN_DETECT=true; RUN_RUNTIMES=true ;;
@@ -81,6 +85,7 @@ while [[ $# -gt 0 ]]; do
                 validate)  RUN_VALIDATE=false ;;
                 system)    RUN_SYSTEM_UPDATE=false ;;
                 detect)    RUN_DETECT=false ;;
+                cli)       RUN_CLI=false ;;
                 platform)  RUN_PLATFORM=false ;;
                 python)    RUN_PYTHON=false ;;
                 runtimes)  RUN_RUNTIMES=false ;;
@@ -137,6 +142,39 @@ section_prereqs() {
     ensure_prereq_dirs
 }
 
+# Puts `awb` on PATH. Runs early so the CLI exists even if a later section
+# fails — a partial install is exactly when you want the diagnostics command.
+section_cli() {
+    log_step "Installing the awb CLI"
+    if ! is_true "${INSTALL_AWB_CLI:-true}"; then
+        log_info "Skipping awb CLI symlink (INSTALL_AWB_CLI not enabled in config.env). Run it as ${AWB_ROOT}/scripts/awb."
+        return 0
+    fi
+
+    local target_dir="${AWB_CLI_DIR:-$HOME/.local/bin}"
+    local link="${target_dir}/awb"
+    local src="${AWB_ROOT}/scripts/awb"
+
+    [[ -f "$src" ]] || fail_loud "Cannot install the CLI: ${src} not found."
+    ensure_dir "$target_dir"
+
+    # Never clobber something that isn't ours: a real binary named 'awb' from
+    # another project is the user's, not ours to overwrite. Re-pointing our own
+    # symlink is fine and keeps the section idempotent across repo moves.
+    if [[ -e "$link" && ! -L "$link" ]]; then
+        fail_loud "Refusing to overwrite ${link}: it exists and is not a symlink. Remove it, or set AWB_CLI_DIR to another directory in config.env."
+    fi
+
+    ln -sfn "$src" "$link" || fail_loud "Failed to symlink ${link} -> ${src}"
+
+    case ":${PATH}:" in
+        *":${target_dir}:"*)
+            log_ok "awb installed: ${link} (on PATH)" ;;
+        *)
+            log_warn "awb installed at ${link}, but ${target_dir} is not on your PATH. Add it to your shell profile: export PATH=\"${target_dir}:\$PATH\"" ;;
+    esac
+}
+
 section_platform() {
     log_step "Installing platform stack: ${PLATFORM_TARGET}"
     # CPU baseline is always installed, regardless of detected GPU, since
@@ -180,6 +218,14 @@ section_models() {
     log_step "Downloading default model"
     safe_source "${AWB_ROOT}/models/install.sh"
     model_install "${DEFAULT_MODEL:-gemma3-e2b}"
+
+    # whisper.cpp's binary is inert without a GGML model, and section_runtimes
+    # only builds the binary — so before this, every clean install finished with
+    # a working whisper-cli and nothing for it to transcribe, which doctor then
+    # reported as a failure on a brand new machine.
+    if is_true "${INSTALL_WHISPER:-true}" && [[ -n "${DEFAULT_WHISPER_MODEL:-}" ]]; then
+        model_install "$DEFAULT_WHISPER_MODEL"
+    fi
 }
 
 section_services() {
@@ -246,6 +292,7 @@ main() {
     is_true "$RUN_SYSTEM_UPDATE" && section_system_update
     section_prereqs   # always runs, unconditionally, before any branch below
     is_true "$RUN_DETECT" && section_detect
+    is_true "$RUN_CLI" && section_cli
     # Python envs precede the platform stack: platforms/intel/openvino.sh pip
     # installs into the 'openvino' venv that create_envs.sh builds, and
     # runtimes/openvino layers on top of that. create_envs.sh itself needs only

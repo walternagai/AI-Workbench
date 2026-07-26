@@ -17,13 +17,13 @@ is unit-tested with pytest.
 
 ```bash
 ./install.sh                          # full install
-./install.sh --only <section>         # validate|system|detect|platform|python|runtimes|models|services|benchmark|report
+./install.sh --only <section>         # validate|system|detect|cli|platform|python|runtimes|models|services|benchmark|report
 ./install.sh --skip <section>         # repeatable
 ./doctor.sh                           # 40+ diagnostic checks -> reports/doctor.{json,md}
 ./detect.sh                           # hardware detection summary -> reports/hardware.json
 ./update.sh                           # update framework + installed runtimes/models
 make install | make doctor | make detect | make update | make monitor | make info
-make install-platform / install-python / install-runtimes / install-models / install-services / install-benchmark
+make install-cli / install-platform / install-python / install-runtimes / install-models / install-services / install-benchmark
 make model-install NAME=gemma3-e2b
 make runtime-install NAME=llama.cpp
 make benchmark TARGET=llm ARGS='path/to/model.gguf'
@@ -80,8 +80,9 @@ the repo).
 ## Architecture
 
 **Orchestration flow** (`install.sh`): validate → apt system update →
-`section_prereqs` (unconditional) → `detect.sh` → Python envs → platform
-module → runtimes → default model → docker services → benchmark → report.
+`section_prereqs` (unconditional) → `detect.sh` → awb CLI symlink → Python
+envs → platform module → runtimes → default + whisper models → docker
+services → benchmark → report.
 Python envs precede the platform module because `platforms/intel/openvino.sh`
 pip installs into the `openvino` venv that `python/create_envs.sh` creates.
 Every section is a function (`section_*`) gated by a `RUN_*` boolean that
