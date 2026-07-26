@@ -70,17 +70,26 @@ detect_gpu() {
     local vga_line
     vga_line=$(lspci -mm | grep -Ei 'VGA compatible controller|3D controller|Display controller' | head -1 || true)
 
-    if echo "$vga_line" | grep -qi 'nvidia'; then
+    # `lspci -mm` emits: <slot> "<class>" "<vendor>" "<device>" ... Match the
+    # vendor field alone, and match "amd"/"ati" as whole words: as substrings
+    # they hide inside "VGA comp(ati)ble controller" and "Intel Corpor(ati)on",
+    # which classified every non-NVIDIA GPU as AMD.
+    local vga_vendor vga_device
+    vga_vendor=$(echo "$vga_line" | sed -n 's/^[^ ]* "[^"]*" "\([^"]*\)".*/\1/p')
+    vga_device=$(echo "$vga_line" | sed -n 's/^[^ ]* "[^"]*" "[^"]*" "\([^"]*\)".*/\1/p')
+    [[ -n "$vga_device" ]] || vga_device=$(echo "$vga_line" | sed -n 's/.*"\(.*\)"\s*$/\1/p')
+
+    if echo "$vga_vendor" | grep -qi 'nvidia'; then
         export GPU_VENDOR="NVIDIA"
         export HAS_NVIDIA_GPU="true"
-        GPU_MODEL=$(echo "$vga_line" | sed -n 's/.*"\(.*\)"\s*$/\1/p')
-    elif echo "$vga_line" | grep -qi 'amd\|ati'; then
+        GPU_MODEL="$vga_device"
+    elif echo "$vga_vendor" | grep -qiwE 'amd|ati|advanced micro devices'; then
         export GPU_VENDOR="AMD"
         export HAS_AMD_GPU="true"
-        GPU_MODEL=$(echo "$vga_line" | sed -n 's/.*"\(.*\)"\s*$/\1/p')
-    elif echo "$vga_line" | grep -qi 'intel'; then
+        GPU_MODEL="$vga_device"
+    elif echo "$vga_vendor" | grep -qi 'intel'; then
         export GPU_VENDOR="Intel"
-        GPU_MODEL=$(echo "$vga_line" | sed -n 's/.*"\(.*\)"\s*$/\1/p')
+        GPU_MODEL="$vga_device"
         if echo "$GPU_MODEL" | grep -qi 'arc\|meteor lake\|lunar lake\|battlemage\|arrow lake\|iris xe'; then
             export HAS_INTEL_ARC="true"
         fi
