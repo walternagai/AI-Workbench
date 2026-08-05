@@ -1,0 +1,13 @@
+task: revisao-codigo-rodada-2
+status: draft
+done: "Revisão manual de lógica dos scripts core (install.sh, doctor.sh, detect.sh, update.sh), lib/, runtimes/ e platforms/ concluída com lista de achados classificados por severidade; gates automáticos (make test) re-executados no HEAD atual e verdes; relatório outcome-first entregue sem nenhuma alteração de código."
+base_commit: "4b02c9aaa1bfc718c62de83d61f7d31db5df51f2"
+fit:
+  trivial: false
+  route: question
+  reason: "Nova rodada de code review — tarefa diagnóstica: inspecionar lógica, reportar achados e recomendações; nenhuma mudança de código sem autorização. Escopo herdado da linha PENDING da task revisao-completa-codigo (revisão manual de lógica de negócio nos scripts core e módulos runtime/plataforma)."
+  answered: true
+  skipped: false
+preflight:
+  skills_missing: []
+  notes: "CLI 'python -m kata' indisponível (módulo não instalado); skills de fase carregam normalmente. VERIFY usará os gates do próprio projeto (make test) conforme adaptação prevista; --report/--judge via CLI indisponíveis."
