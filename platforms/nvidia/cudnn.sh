@@ -29,8 +29,26 @@ install_nvidia_cudnn() {
     fi
     [[ -n "$cuda_major" ]] && pkg="cudnn9-cuda-${cuda_major}"
 
-    sudo apt-get install -y "$pkg" 2>/dev/null \
-        || log_warn "${pkg} not found in configured apt sources; PyTorch's bundled cuDNN (via pip) will be used instead for fine-tuning workflows. Non-fatal."
+    # nvidia-cudnn (Ubuntu repo) and cudnn9-cuda-12 (NVIDIA repo) both own
+    # /usr/lib/x86_64-linux-gnu/libcudnn.so — installing the 9.x metapackage
+    # over the legacy 8.9 package makes dpkg abort mid-unpack, which leaves
+    # the whole apt state inconsistent and takes every later install down.
+    # The version check is belt-and-braces on top of the guard above, and the
+    # conflict check keeps this section best-effort: skip rather than break.
+    if apt-cache policy "$pkg" 2>/dev/null | grep -q 'Candidate:'; then
+        local cand
+        cand=$(apt-cache policy "$pkg" 2>/dev/null | awk '/Candidate:/{print $2; exit}')
+        if [[ "$cand" =~ ^9\.[0-9]+ ]] \
+            && dpkg -l nvidia-cudnn 2>/dev/null | grep -q '^ii'; then
+            log_warn "cuDNN 9 ($cand) conflicts with the installed legacy nvidia-cudnn; keeping 8.9 (PyTorch's bundled cuDNN via pip is used for fine-tuning)."
+            log_ok "cuDNN step complete (best-effort)."
+            return 0
+        fi
+        sudo apt-get install -y "$pkg" 2>/dev/null \
+            || log_warn "${pkg} not found in configured apt sources; PyTorch's bundled cuDNN (via pip) will be used instead for fine-tuning workflows. Non-fatal."
+    else
+        log_warn "${pkg} not found in configured apt sources; PyTorch's bundled cuDNN (via pip) will be used instead for fine-tuning workflows. Non-fatal."
+    fi
 
     log_ok "cuDNN step complete (best-effort)."
 }

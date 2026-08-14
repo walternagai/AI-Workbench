@@ -126,6 +126,8 @@ section_system_update() {
     sudo apt-get install -y \
         build-essential cmake ninja-build git curl wget pciutils \
         lm-sensors python3 python3-venv python3-pip \
+        vulkan-tools clinfo \
+        docker-compose-plugin \
         || fail_loud "Failed to install base build/detection tooling"
 }
 
