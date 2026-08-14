@@ -68,6 +68,7 @@ _disable_all_sections() {
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --only)
+            [[ $# -ge 2 ]] || fail_loud "--only requires a section name (see --help)"
             _disable_all_sections
             case "$2" in
                 validate)  RUN_VALIDATE=true ;;
@@ -85,6 +86,7 @@ while [[ $# -gt 0 ]]; do
             esac
             shift 2 ;;
         --skip)
+            [[ $# -ge 2 ]] || fail_loud "--skip requires a section name (see --help)"
             case "$2" in
                 validate)  RUN_VALIDATE=false ;;
                 system)    RUN_SYSTEM_UPDATE=false ;;

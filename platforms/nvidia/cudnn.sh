@@ -14,6 +14,15 @@ install_nvidia_cudnn() {
 
     _ensure_nvidia_cuda_apt_repo || true
 
+    if dpkg -l | grep -q '^ii  nvidia-cudnn'; then
+        log_ok "nvidia-cudnn already installed; skipping cuDNN 9 metapackage to avoid conflicts."
+        return 0
+    fi
+    if dpkg -l | grep -q '^ii  libcudnn9-dev-cuda-'; then
+        log_ok "libcudnn9-dev-cuda-* already installed; skipping."
+        return 0
+    fi
+
     local cuda_major="" pkg="libcudnn8"
     if has_cmd nvcc; then
         cuda_major="$(nvcc --version 2>/dev/null | grep -oP 'release \K[0-9]+')"

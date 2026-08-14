@@ -13,6 +13,8 @@ source "${AWB_ROOT}/platforms/nvidia/cudnn.sh"
 source "${AWB_ROOT}/platforms/nvidia/tensorrt.sh"
 # shellcheck source=platforms/nvidia/vulkan.sh
 source "${AWB_ROOT}/platforms/nvidia/vulkan.sh"
+# shellcheck source=platforms/nvidia/opencl.sh
+source "${AWB_ROOT}/platforms/nvidia/opencl.sh"
 
 install_nvidia_platform() {
     log_step "NVIDIA platform: ${GPU_MODEL:-unknown}"
@@ -21,6 +23,7 @@ install_nvidia_platform() {
     install_nvidia_cudnn
     install_nvidia_tensorrt
     install_nvidia_vulkan
+    install_nvidia_opencl
 
     if is_true "${INSTALL_DOCKER:-true}"; then
         install_nvidia_container_toolkit

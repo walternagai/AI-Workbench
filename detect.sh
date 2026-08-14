@@ -115,35 +115,109 @@ detect_npu() {
 # ---------------------------------------------------------------------------
 # Acceleration APIs
 # ---------------------------------------------------------------------------
+
+# ICD lookup locations, overridable for non-FHS layouts (NixOS, Guix, ...).
+# Tests also point these at a sandbox.
+VULKAN_ICD_DIRS="${VULKAN_ICD_DIRS:-/usr/share/vulkan/icd.d /etc/vulkan/icd.d}"
+OPENCL_ICD_DIR="${OPENCL_ICD_DIR:-/etc/OpenCL/vendors}"
+ICD_LIB_DIR="${ICD_LIB_DIR:-/usr/lib/x86_64-linux-gnu}"
+
+# _icd_present <icd_dir> <vendor_pattern> — true if an installed ICD declares a
+# driver for the given vendor. This is the fallback that keeps detection honest
+# when the diagnostic tool (vulkaninfo/clinfo) isn't installed yet: an ICD on
+# disk means the driver stack is present, just unverified. Matching a vendor
+# token, not the filename, so vendor names like "AMD" don't false-match
+# unrelated entries and multi-vendor lists stay correct. Handles both ICD
+# formats: Vulkan's JSON ("library_path": "...") and OpenCL's plain-text
+# library path.
+_icd_present() {
+    local icd_dir="$1" pattern="$2" icd_file lib
+    [[ -d "$icd_dir" ]] || return 1
+    for icd_file in "$icd_dir"/*; do
+        [[ -f "$icd_file" ]] || continue
+        lib=$(grep -m1 '"library_path"' "$icd_file" 2>/dev/null \
+            | sed -n 's/.*"library_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+        [[ -n "$lib" ]] || lib=$(grep -m1 -v '^[[:space:]]*#' "$icd_file" 2>/dev/null | head -1)
+        [[ -n "$lib" ]] || continue
+        [[ "$lib" == /* ]] || lib="${ICD_LIB_DIR}/${lib}"
+        if [[ -f "$lib" ]] && echo "$lib" | grep -qiE "$pattern"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# _accel_state <tool> <icd_dirs> <icd_pattern> <tool_args...> — prints two
+# lines: the state, then the tool's raw output (empty unless functional).
+# States:
+#   functional  — the tool ran and found at least one device
+#   icd-only    — the tool is missing/unanswered but a vendor ICD is on disk
+#   none        — neither a tool result nor an ICD exists
+# A separate "icd-only" state (rather than just false) is what lets doctor.sh
+# tell "driver stack not installed" apart from "diagnostic tool missing" — a
+# distinction that used to collapse into a false fail on every machine whose
+# vulkan-tools/clinfo weren't installed yet.
+_accel_state() {
+    local tool="$1" icd_dirs="$2" icd_pattern="$3"
+    shift 3
+    local out=""
+    if has_cmd "$tool"; then
+        out="$("$tool" "$@" 2>/dev/null)" || true
+        if [[ -n "$out" ]]; then
+            printf 'functional\n%s' "$out"
+            return 0
+        fi
+    fi
+    local dir
+    for dir in $icd_dirs; do
+        if _icd_present "$dir" "$icd_pattern"; then
+            printf 'icd-only\n'
+            return 0
+        fi
+    done
+    printf 'none\n'
+}
+
 detect_vulkan() {
     export HAS_VULKAN="false"
     export VULKAN_DEVICE=""
-    if has_cmd vulkaninfo; then
-        local tmpfile
-        tmpfile="$(mktemp /tmp/awb_vulkaninfo.XXXXXX 2>/dev/null)" || tmpfile=""
-        if [[ -n "$tmpfile" ]]; then
-            if vulkaninfo --summary >"$tmpfile" 2>/dev/null; then
-                export HAS_VULKAN="true"
-                VULKAN_DEVICE=$(grep -m1 'deviceName' "$tmpfile" | cut -d= -f2 | sed 's/^ //')
-            fi
-            rm -f "$tmpfile"
-        fi
+    export VULKAN_STATE="none"
+    local result device=""
+    result=$(_accel_state vulkaninfo "$VULKAN_ICD_DIRS" \
+        "nvidia|amd|intel|mesa|lavapipe|nouveau" \
+        --summary)
+    VULKAN_STATE="${result%%$'\n'*}"
+    device="${result#*$'\n'}"
+    [[ "$device" == "$VULKAN_STATE" ]] && device=""
+    if [[ "$VULKAN_STATE" == "functional" ]]; then
+        export HAS_VULKAN="true"
+        # vulkaninfo --summary prints "deviceName = <name>"; keep just the name.
+        VULKAN_DEVICE="$(echo "$device" | grep -m1 'deviceName' | cut -d= -f2 | sed 's/^ //')"
+        export VULKAN_DEVICE
+    elif [[ "$VULKAN_STATE" == "icd-only" ]]; then
+        export HAS_VULKAN="true"
     fi
 }
 
 detect_opencl() {
     export HAS_OPENCL="false"
     export OPENCL_DEVICE=""
-    if has_cmd clinfo; then
-        local listing
-        listing=$(clinfo -l 2>/dev/null)
-        if [[ -n "$listing" ]]; then
-            export HAS_OPENCL="true"
-            # Mirrors VULKAN_DEVICE: name the device rather than only asserting
-            # one exists, so reports say which accelerator answered.
-            OPENCL_DEVICE=$(echo "$listing" | sed -n 's/.*Device #0: *//p' | head -1)
-            [[ -n "$OPENCL_DEVICE" ]] || OPENCL_DEVICE=$(echo "$listing" | sed -n 's/^Platform #0: *//p' | head -1)
-        fi
+    export OPENCL_STATE="none"
+    local result device=""
+    result=$(_accel_state clinfo "$OPENCL_ICD_DIR" \
+        "nvidia|amd|intel|mesa" \
+        -l)
+    OPENCL_STATE="${result%%$'\n'*}"
+    device="${result#*$'\n'}"
+    [[ "$device" == "$OPENCL_STATE" ]] && device=""
+    if [[ "$OPENCL_STATE" == "functional" ]]; then
+        export HAS_OPENCL="true"
+        # Mirrors VULKAN_DEVICE: name the device rather than only asserting
+        # one exists, so reports say which accelerator answered.
+        OPENCL_DEVICE=$(echo "$device" | sed -n 's/.*Device #0: *//p' | head -1)
+        [[ -n "$OPENCL_DEVICE" ]] || OPENCL_DEVICE=$(echo "$device" | sed -n 's/^Platform #0: *//p' | head -1)
+    elif [[ "$OPENCL_STATE" == "icd-only" ]]; then
+        export HAS_OPENCL="true"
     fi
 }
 
@@ -242,8 +316,10 @@ $(json_kv has_nvidia_gpu "$HAS_NVIDIA_GPU"),
 $(json_kv has_amd_gpu "$HAS_AMD_GPU"),
 $(json_kv has_vulkan "$HAS_VULKAN"),
 $(json_kv vulkan_device "${VULKAN_DEVICE:-}"),
+$(json_kv vulkan_state "${VULKAN_STATE:-none}"),
 $(json_kv opencl_device "${OPENCL_DEVICE:-}"),
 $(json_kv has_opencl "$HAS_OPENCL"),
+$(json_kv opencl_state "${OPENCL_STATE:-none}"),
 $(json_kv has_cuda "$HAS_CUDA"),
 $(json_kv cuda_version "${CUDA_VERSION:-}"),
 $(json_kv has_rocm "$HAS_ROCM"),
@@ -265,8 +341,8 @@ print_summary() {
     [[ -n "${GPU_ALL_CONTROLLERS:-}" ]] && echo -e "  All GPUs:      ${GPU_ALL_CONTROLLERS}"
     echo -e "  Intel Arc:     ${HAS_INTEL_ARC}"
     echo -e "  Intel NPU:     ${HAS_INTEL_NPU}"
-    echo -e "  Vulkan:        ${HAS_VULKAN} ${VULKAN_DEVICE:+(${VULKAN_DEVICE})}"
-    echo -e "  OpenCL:        ${HAS_OPENCL}"
+    echo -e "  Vulkan:        ${HAS_VULKAN} ${VULKAN_DEVICE:+(${VULKAN_DEVICE})}${VULKAN_STATE:+ [${VULKAN_STATE}]}"
+    echo -e "  OpenCL:        ${HAS_OPENCL} ${OPENCL_STATE:+[${OPENCL_STATE}]}"
     echo -e "  CUDA:          ${HAS_CUDA} ${CUDA_VERSION:+(driver ${CUDA_VERSION})}"
     echo -e "  ROCm:          ${HAS_ROCM}"
     echo -e "  RAM:           ${RAM_GB} GB"

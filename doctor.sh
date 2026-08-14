@@ -161,8 +161,24 @@ check_cmd "pip" pip3
 # Category: Acceleration APIs
 # ---------------------------------------------------------------------------
 echo -e "\n${C_BOLD}Acceleration${C_RESET}"
-check_true "Vulkan" "${HAS_VULKAN:-false}" "no functional Vulkan device detected" "${VULKAN_DEVICE:-device name unavailable}"
-check_true "OpenCL" "${HAS_OPENCL:-false}" "no OpenCL platform detected" "${OPENCL_DEVICE:-device name unavailable}"
+# Vulkan/OpenCL have three states (see detect.sh): "functional" (tool ran and
+# found a device), "icd-only" (driver ICD present but the diagnostic tool
+# isn't installed — the stack is there, just unverified), and "none". Only
+# "none" is a real failure; "icd-only" is a warn with the exact remedy.
+if [[ "${VULKAN_STATE:-none}" == "functional" ]]; then
+    check "Vulkan" pass "${VULKAN_DEVICE:-device name unavailable}"
+elif [[ "${VULKAN_STATE:-none}" == "icd-only" ]]; then
+    check "Vulkan" warn "driver ICD present but vulkaninfo not installed — run: awb install --only platform (or: sudo apt-get install vulkan-tools)"
+else
+    check "Vulkan" fail "no functional Vulkan device detected"
+fi
+if [[ "${OPENCL_STATE:-none}" == "functional" ]]; then
+    check "OpenCL" pass "${OPENCL_DEVICE:-device name unavailable}"
+elif [[ "${OPENCL_STATE:-none}" == "icd-only" ]]; then
+    check "OpenCL" warn "driver ICD present but clinfo not installed — run: awb install --only platform (or: sudo apt-get install clinfo)"
+else
+    check "OpenCL" fail "no OpenCL platform detected"
+fi
 if [[ "${PLATFORM_TARGET:-}" == "nvidia" ]]; then
     check_true "CUDA" "${HAS_CUDA:-false}" "nvidia-smi not functional"
 else
