@@ -15,10 +15,16 @@ AWB_WHISPER_MODELS_DIR="${AI_HOME:-$HOME/ai}/models/whisper"
 # Curated catalog: name -> "hf_repo_id|filename|approx_size|notes"
 _awb_model_catalog() {
     case "$1" in
+        gemma4-e2b)
+            echo "ggml-org/gemma-4-E2B-it-GGUF|gemma-4-E2B-it-Q8_0.gguf|~5GB|Gemma 4 E2B Q8_0 — new default; multimodal (text/image/audio), 128K ctx, Apache-2.0" ;;
+        gemma4-e4b)
+            echo "ggml-org/gemma-4-E4B-it-GGUF|gemma-4-E4B-it-Q8_0.gguf|~8GB|Gemma 4 E4B Q8_0 — stronger edge model, same feature set" ;;
+        gemma4-26b)
+            echo "ggml-org/gemma-4-26B-A4B-it-GGUF|gemma-4-26B-A4B-it-Q4_0.gguf|~14.6GB|Gemma 4 26B A4B Q4_0 — MoE, frontier-level reasoning, needs ~16GB VRAM" ;;
         gemma3)
             echo "google/gemma-3-4b-it-qat-q4_0-gguf|gemma-3-4b-it-q4_0.gguf|~3.2GB|Gemma 3, quantized for low-memory systems (gated repo: accept the license at hf.co/google/gemma-3-4b-it-qat-q4_0-gguf first)" ;;
         gemma3-e2b)
-            echo "ggml-org/gemma-3n-E2B-it-GGUF|gemma-3n-E2B-it-Q8_0.gguf|~4.8GB|Gemma E2B Q8_0 — recommended for memory-constrained iGPU setups" ;;
+            echo "ggml-org/gemma-3n-E2B-it-GGUF|gemma-3n-E2B-it-Q8_0.gguf|~4.8GB|Gemma 3n E2B Q8_0 — superseded by gemma4-e2b, kept for existing installs" ;;
         qwen3)
             echo "Qwen/Qwen3-8B-GGUF|Qwen3-8B-Q4_K_M.gguf|~5GB|Qwen3 8B, general purpose" ;;
         qwen3-4b)
@@ -43,6 +49,10 @@ _awb_whisper_catalog() {
             echo "ggerganov/whisper.cpp|ggml-base.en.bin|~142MB|Good speed/accuracy balance, English-only — used by benchmarks/whisper" ;;
         whisper-small.en)
             echo "ggerganov/whisper.cpp|ggml-small.en.bin|~466MB|Higher accuracy, English-only" ;;
+        whisper-medium.en)
+            echo "ggerganov/whisper.cpp|ggml-medium.en.bin|~1.5GB|High accuracy, English-only" ;;
+        whisper-large-v3-turbo)
+            echo "ggerganov/whisper.cpp|ggml-large-v3-turbo.bin|~1.6GB|Large v3 Turbo — best accuracy/speed of the .en line, multilingual" ;;
         *)
             return 1 ;;
     esac
@@ -50,7 +60,7 @@ _awb_whisper_catalog() {
 
 model_catalog_list() {
     printf '%b%s%b\n' "${C_BOLD}" "Available LLM models (name — size — notes):" "${C_RESET}"
-    for name in gemma3 gemma3-e2b qwen3 qwen3-4b phi4 deepseek-coder-v2; do
+    for name in gemma3 gemma3-e2b gemma4-e2b gemma4-e4b gemma4-26b qwen3 qwen3-4b phi4 deepseek-coder-v2; do
         local entry size notes
         entry="$(_awb_model_catalog "$name")"
         size="$(echo "$entry" | cut -d'|' -f3)"
@@ -58,7 +68,7 @@ model_catalog_list() {
         printf '  %-20s %-10s %s\n' "$name" "$size" "$notes"
     done
     printf '\n%b%s%b\n' "${C_BOLD}" "Available Whisper speech models (name — size — notes):" "${C_RESET}"
-    for name in whisper-tiny.en whisper-base.en whisper-small.en; do
+    for name in whisper-tiny.en whisper-base.en whisper-small.en whisper-medium.en whisper-large-v3-turbo; do
         local entry size notes
         entry="$(_awb_whisper_catalog "$name")"
         size="$(echo "$entry" | cut -d'|' -f3)"

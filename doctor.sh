@@ -403,7 +403,7 @@ model_count=$(find "${AI_HOME:-$HOME/ai}/models/gguf" -name '*.gguf' 2>/dev/null
 if (( model_count > 0 )); then
     check "GGUF models installed" pass "${model_count} file(s)"
 else
-    check "GGUF models installed" fail "run: awb model install ${DEFAULT_MODEL:-gemma3-e2b}"
+    check "GGUF models installed" fail "run: awb model install ${DEFAULT_MODEL:-gemma4-e2b}"
 fi
 
 # whisper-cli is useless without a GGML model, and benchmarks/whisper/run.sh

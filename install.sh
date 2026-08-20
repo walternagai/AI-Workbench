@@ -286,7 +286,7 @@ section_runtimes() {
 section_models() {
     log_step "Downloading default model"
     safe_source "${AWB_ROOT}/models/install.sh"
-    model_install "${DEFAULT_MODEL:-gemma3-e2b}"
+    model_install "${DEFAULT_MODEL:-gemma4-e2b}"
 
     # whisper.cpp's binary is inert without a GGML model, and section_runtimes
     # only builds the binary — so before this, every clean install finished with

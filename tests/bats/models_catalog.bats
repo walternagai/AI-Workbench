@@ -25,8 +25,8 @@ setup() {
 
 # The names model_catalog_list advertises. Every assertion below walks these,
 # so an entry added to the catalog without being listed is itself a failure.
-LLM_MODELS="gemma3 gemma3-e2b qwen3 qwen3-4b phi4 deepseek-coder-v2"
-WHISPER_MODELS="whisper-tiny.en whisper-base.en whisper-small.en"
+LLM_MODELS="gemma3 gemma3-e2b gemma4-e2b gemma4-e4b gemma4-26b qwen3 qwen3-4b phi4 deepseek-coder-v2"
+WHISPER_MODELS="whisper-tiny.en whisper-base.en whisper-small.en whisper-medium.en whisper-large-v3-turbo"
 
 # --- catalog lookup -------------------------------------------------------
 
