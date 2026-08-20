@@ -17,10 +17,11 @@ AWB_ROOT="${AWB_ROOT:?must be sourced from install.sh}"
 _ollama_download() {
     local tmpfile
     tmpfile="$(mktemp /tmp/ollama-install.XXXXXX.sh)"
-    trap 'rm -f "$tmpfile"' RETURN
 
     require_cmd curl "Ollama installer"
-    log_info "Downloading Ollama installer to ${tmpfile} ..."
+    # stdout is the function's return channel ($(_ollama_download)); keep log
+    # lines off it or they end up inside the filename the caller runs.
+    log_info "Downloading Ollama installer to ${tmpfile} ..." >&2
     curl --fail --location --progress-bar \
         --retry 3 --retry-delay 5 \
         --output "$tmpfile" \
@@ -45,7 +46,8 @@ install_ollama() {
         local installer
         installer="$(_ollama_download)"
         log_info "Running Ollama installer ..."
-        sh "$installer" || fail_loud "Ollama install script failed"
+        sh "$installer" || { rm -f "$installer"; fail_loud "Ollama install script failed"; }
+        rm -f "$installer"
     fi
 
     if [[ "${PLATFORM_TARGET:-}" == "intel" && "${HAS_INTEL_ARC:-false}" != "false" ]]; then
@@ -62,7 +64,8 @@ update_ollama() {
     local installer
     installer="$(_ollama_download)"
     log_info "Running Ollama installer (update) ..."
-    sh "$installer" || fail_loud "Ollama update failed"
+    sh "$installer" || { rm -f "$installer"; fail_loud "Ollama update failed"; }
+    rm -f "$installer"
 }
 
 remove_ollama() {
