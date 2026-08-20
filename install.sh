@@ -126,18 +126,70 @@ section_system_update() {
     sudo apt-get install -y \
         build-essential cmake ninja-build git curl wget pciutils \
         lm-sensors python3 python3-venv python3-pip \
-        vulkan-tools clinfo \
+        vulkan-tools clinfo ca-certificates gnupg \
         || fail_loud "Failed to install base build/detection tooling"
 
-    # docker-compose-plugin exists only in Docker's own apt repo, not Ubuntu
-    # or Pop!_OS — so it is attempted (not required) only when a docker CLI is
-    # already present. A missing plugin surfaces loudly later via
-    # `docker compose ... || fail_loud` in services/install.sh, so it must not
-    # abort the whole system section here.
-    if is_true "${INSTALL_DOCKER:-true}" && has_cmd docker; then
-        sudo apt-get install -y docker-compose-plugin 2>/dev/null \
-            || log_warn "docker-compose-plugin is not in apt (it ships only from Docker's official repo: https://docs.docker.com/engine/install/ubuntu/). Docker Compose services will not work until it is installed."
+    # Docker Engine is required by section_services and by the NVIDIA
+    # container toolkit, but it was never installed here: the project only
+    # assumed a pre-existing docker. Install it from Docker's official repo
+    # (also the only place docker-compose-plugin exists) when INSTALL_DOCKER
+    # is on; otherwise just top up the compose plugin for an existing docker.
+    if is_true "${INSTALL_DOCKER:-true}"; then
+        if has_cmd docker; then
+            sudo apt-get install -y docker-compose-plugin 2>/dev/null \
+                || log_warn "docker-compose-plugin is not in apt (it ships only from Docker's official repo: https://docs.docker.com/engine/install/ubuntu/). Docker Compose services will not work until it is installed."
+        else
+            install_docker_ce
+        fi
     fi
+}
+
+# install_docker_ce — idempotent install of Docker Engine + compose plugin from
+# Docker's official apt repo. Ubuntu/Pop!_OS never ship docker-compose-plugin,
+# and Docker Desktop is not something a headless installer can assume. The
+# failure mode for a broken install is the same as always: require_cmd docker
+# / `docker compose ... || fail_loud` in services/install.sh.
+install_docker_ce() {
+    log_step "Installing Docker Engine from the official apt repo"
+    if dpkg -s docker-ce &>/dev/null && has_cmd docker; then
+        log_ok "Docker Engine already installed."
+        return 0
+    fi
+    require_cmd curl "installing Docker Engine"
+
+    local arch="${HOST_ARCH:-$(uname -m)}"
+    case "$arch" in
+        x86_64|amd64)  arch=amd64 ;;
+        aarch64|arm64) arch=arm64 ;;
+        *) fail_loud "Unsupported architecture for Docker Engine: $arch" ;;
+    esac
+
+    local codename="${VERSION_CODENAME:-}"
+    if [[ -z "$codename" ]]; then
+        codename="$(awk -F= '/^VERSION_CODENAME=/{print $2}' /etc/os-release 2>/dev/null || true)"
+    fi
+    # Pop!_OS 24.04 reports noble; the Ubuntu codename is what Docker's repo uses.
+    [[ -n "$codename" ]] || fail_loud "Cannot determine OS codename for Docker's apt repo"
+
+    if ! dpkg -s docker-ce &>/dev/null; then
+        sudo install -m 0755 -d /etc/apt/keyrings
+        if ! curl -fsSL --retry 3 --retry-delay 5 "https://download.docker.com/linux/ubuntu/gpg" | sudo gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg; then
+            fail_loud "Failed to download Docker's GPG key for the apt repo"
+        fi
+        sudo chmod a+r /etc/apt/keyrings/docker.gpg
+        echo "deb [arch=${arch} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu ${codename} stable" \
+            | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+        # Not apt_update_once: its AWB_APT_UPDATED marker is already set by the
+        # top of this section, and the new repo must be fetched before install.
+        sudo apt-get update -y || fail_loud "apt-get update failed after adding Docker's repo"
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
+            || fail_loud "Failed to install Docker Engine from download.docker.com"
+    fi
+
+    sudo systemctl enable --now docker || log_warn "Could not start docker.service; start it manually before running services."
+    # Rootless-ish convenience: let the installing user drive docker without sudo.
+    sudo usermod -aG docker "${SUDO_USER:-$USER}" || true
+    log_ok "Docker Engine installed and started."
 }
 
 section_detect() {
