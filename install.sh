@@ -127,8 +127,17 @@ section_system_update() {
         build-essential cmake ninja-build git curl wget pciutils \
         lm-sensors python3 python3-venv python3-pip \
         vulkan-tools clinfo \
-        docker-compose-plugin \
         || fail_loud "Failed to install base build/detection tooling"
+
+    # docker-compose-plugin exists only in Docker's own apt repo, not Ubuntu
+    # or Pop!_OS — so it is attempted (not required) only when a docker CLI is
+    # already present. A missing plugin surfaces loudly later via
+    # `docker compose ... || fail_loud` in services/install.sh, so it must not
+    # abort the whole system section here.
+    if is_true "${INSTALL_DOCKER:-true}" && has_cmd docker; then
+        sudo apt-get install -y docker-compose-plugin 2>/dev/null \
+            || log_warn "docker-compose-plugin is not in apt (it ships only from Docker's official repo: https://docs.docker.com/engine/install/ubuntu/). Docker Compose services will not work until it is installed."
+    fi
 }
 
 section_detect() {

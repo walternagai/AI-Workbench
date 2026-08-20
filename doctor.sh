@@ -147,7 +147,7 @@ check_cmd "Docker" docker
 if has_cmd docker && compose_ver="$(docker compose version 2>/dev/null)"; then
     check "Docker Compose plugin" pass "$compose_ver"
 else
-    check "Docker Compose plugin" fail "run: sudo apt-get install docker-compose-plugin"
+    check "Docker Compose plugin" fail "install docker-compose-plugin from Docker's official apt repo (https://docs.docker.com/engine/install/ubuntu/)"
 fi
 check_cmd "Python 3" python3
 if python3 -m venv --help >/dev/null 2>&1; then
