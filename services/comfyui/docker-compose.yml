@@ -1,0 +1,36 @@
+# services/comfyui/docker-compose.yml
+# ComfyUI — geração de imagens local (backend headless do Kage, no Seiryu).
+# GPU dedicada: RTX 5060 Ti (UUID: GPU-9a54cc77-6d19-6a9d-ecb3-629d823b11b7),
+# via NVIDIA_VISIBLE_DEVICES — a 4070 Ti SUPER continua dedicada ao Ollama.
+# Bind em 0.0.0.0: o Seiryu alcança via host.docker.internal:7860 (o compose
+# do seiryu já declara esse extra_host para TTS/Ollama). O acesso externo é
+# filtrado pelo auth_request do nginx do hub — nunca exposto direto.
+services:
+  comfyui:
+    image: ghcr.io/ai-dock/comfyui:latest
+    container_name: awb-comfyui
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:${COMFYUI_PORT:-7860}:7860"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=GPU-9a54cc77-6d19-6a9d-ecb3-629d823b11b7
+      - COMFYUI_PORT=7860
+      - CLI_ARGS=--listen 0.0.0.0
+      # Auth desabilitada: o acesso é via hub do seiryu (auth_request do
+      # nginx), que já exige sessão válida antes de chegar ao proxy.
+      - WEB_ENABLE_AUTH=false
+    volumes:
+      - comfyui_data:/workspace
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids:
+                - GPU-9a54cc77-6d19-6a9d-ecb3-629d823b11b7
+              capabilities: [gpu]
+
+volumes:
+  comfyui_data:

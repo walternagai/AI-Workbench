@@ -43,6 +43,7 @@ install_services() {
         _warn_default_secret "POSTGRES_PASSWORD" "${POSTGRES_PASSWORD:-}"
         _compose_up postgres
     }
+    is_true "${INSTALL_COMFYUI:-false}"   && _compose_up comfyui
 
     log_ok "Services step complete."
 }

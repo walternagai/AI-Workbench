@@ -91,6 +91,8 @@ Description=llama.cpp inference server (AI-Workbench)
 After=network.target
 
 [Service]
+EnvironmentFile=-%h/dev/ninja-apps/seiryu/data/gpu.env
+EnvironmentFile=-%h/.config/ai/gpu.env
 ExecStart=${AI_HOME:-$HOME/ai}/bin/llama-server \\
     --model ${model_path} \\
     --host 127.0.0.1 --port 8080 \\

@@ -1,0 +1,109 @@
+task: awb-image-gen-infra
+status: approved
+domain: devops
+done: "Plano de instalação de infraestrutura de geração de imagens no AI-Workbench entregue e aprovado pelo usuário, cobrindo: escolha do backend (ComfyUI via Docker Compose como serviço awb-comfyui, GPU NVIDIA 5060 Ti dedicada), integração no install.sh/services/install.sh seguindo o padrão dos serviços existentes (openwebui/qdrant/chromadb/postgres), flags INSTALL_COMFYUI no config.env, healthcheck e porta (127.0.0.1:7860), e o contrato de exposição para o Kage v2 (host.docker.internal:7860). Sem alterar nenhum arquivo."
+base_commit: "f13ec29a35ffeba6d881426ad382e75c4d8ce7a3"
+fit:
+  trivial: false
+  route: plan-first
+  reason: "Ação de infraestrutura (instalação de serviço Docker GPU-bound no host) e usuário pediu plano antes de implementar. O AI-Workbench é o lugar correto: ele já gerencia serviços Docker via install.sh/services (openwebui, qdrant, chromadb, postgres) com flags INSTALL_* em config.env — a infra de geração de imagem deve seguir esse mesmo padrão, não virar parte do seiryu."
+  answered: true
+  skipped: false
+think:
+  problem: "O host não tem nenhum backend de geração de imagens (evidência: porta 5000 = piper_server TTS; /home/walternagai/ai/ só tem tts/whisper/llama.cpp; docker ps sem comfyui/sd-webui/flux; Ollama sem modelo gerador de imagem). O AI-Workbench é o framework que instala/gerencia o tooling de IA local do host — a infra de geração de imagens deve ser adicionada lá (serviço Docker gerenciado), para depois o Kage v2 do seiryu consumir via API."
+  assumptions:
+    - "ComfyUI é o backend escolhido (decisão B1: a): imagem ghcr.io/ai-dock/comfyui (decisão B2: a), container Docker com GPU NVIDIA"
+    - "GPU dedicada: RTX 5060 Ti (16GB, livre — evidência: nvidia-smi) via NVIDIA_VISIBLE_DEVICES (decisão B3: a); a 4070 Ti SUPER continua dedicada ao Ollama"
+    - "Seguir o padrão AI-Workbench: diretório services/comfyui/docker-compose.yml + flag INSTALL_COMFYUI em config.env + entrada em services/install.sh (padrão _compose_up)"
+    - "Porta 127.0.0.1:7860 (bind localhost, decisão B4: a); o seiryu alcança via host.docker.internal:7860 (decisão B5: a — o compose do seiryu já tem esse extra_host)"
+    - "Checkpoint inicial: SDXL base (~7GB) (decisão B6: a)"
+    - "Implementação inclui smoke test de geração: 1 imagem de teste via API (decisão B7: b)"
+  alternatives:
+    - "alt A: Stable Diffusion WebUI (AUTOMATIC1111) — descartado: mais pesado, foco em UI interativa manual em vez de API/headless para consumo por outro app"
+    - "alt B: FLUX via runnable local (schnell) — descartado para v1: exige mais VRAM/otimizações e não tem o mesmo ecossistema de nós/API do ComfyUI"
+    - "alt C: ComfyUI via Docker Compose como serviço awb-comfyui — escolhido: padrão do AI-Workbench, isolado do host, GPU-bound, API headless pronta para o Kage"
+  unknowns: |
+    RESOLVIDO por evidência:
+    1. GPUs: RTX 4070 Ti SUPER (16GB, em uso parcial pelo Ollama) + RTX 5060 Ti (16GB, livre) — nvidia-smi.
+    2. Padrão de serviços: services/<nome>/docker-compose.yml + flag INSTALL_<NOME> em config.env + _compose_up em services/install.sh (lido services/install.sh e services/qdrant/docker-compose.yml).
+    3. Runtime Docker: docker presente e ativo (docker ps OK).
+    RESOLVIDO por decisão do usuário (rodada de perguntas):
+    1. Backend → ComfyUI via Docker (B1: a).
+    2. Imagem base → ghcr.io/ai-dock/comfyui (B2: a).
+    3. GPU → RTX 5060 Ti dedicada via NVIDIA_VISIBLE_DEVICES (B3: a).
+    4. Porta/bind → 127.0.0.1:7860 (B4: a).
+    5. Rede com seiryu → host.docker.internal:7860 (B5: a).
+    6. Checkpoint inicial → SDXL base ~7GB (B6: a).
+    7. Escopo → instalar + smoke test de geração de 1 imagem via API (B7: b).
+    RESOLVIDO por evidência (implementação):
+    1. GPU dedicada: NVIDIA_VISIBLE_DEVICES=GPU-9a54cc77-6d19-6a9d-ecb3-629d823b11b7 (5060 Ti) + device_ids no deploy.resources (count:1 sozinho sobrescrevia para a GPU 0).
+    2. Blackwell (sm_120): torch 2.4.1+cu121 da imagem NÃO tem kernel para a 5060 Ti (CUDA error: no kernel image) — atualizado para torch 2.7.1+cu128 (xformers/torchaudio ficaram incompatíveis, sem impacto no headless).
+    3. Auth do ai-dock: WEB_ENABLE_AUTH=false (caddy redirecionava para /login em :1111).
+    4. Smoke test: workflow SDXL 512x512, 8 steps → kage-smoke-test_00001_.png (458KB, PNG válido) gerado na 5060 Ti.
+    PENDENTE de confirmação do usuário:
+    1. Inspeção visual da imagem de teste (modelo do agente não suporta imagem) — arquivo em /tmp/opencode/kage-smoke-test.png e /opt/ComfyUI/output/ no container.
+  answered: true
+  skipped: false
+simplify:
+  minimum_code: true
+  no_single_use_abstractions: true
+  no_speculative_config: true
+  notes: "Serviço novo segue exatamente o padrão _compose_up existente — sem nova abstração. Configuração mínima: flag INSTALL_COMFYUI + compose file. Sem configs especulativas de modelo/workflow no plano. Ajustes de implementação: torch 2.7.1+cu128 (Blackwell) e WEB_ENABLE_AUTH=false documentados no compose/unknowns."
+  answered: true
+  skipped: false
+intent:
+  code_does: "AI-Workbench instala/gerencia serviços Docker (openwebui, qdrant, chromadb, postgres) via services/install.sh com flags INSTALL_* em config.env — sem nenhum backend de geração de imagens."
+  check_expects: "O AI-Workbench passa a gerenciar o serviço awb-comfyui (ComfyUI, ghcr.io/ai-dock/comfyui) para geração de imagens local, com GPU 5060 Ti dedicada e porta 127.0.0.1:7860."
+  spec_says: "a segunda task é adicionar a instalação de infra ao ~/dev/AI-Workbench"
+  all_agree: true
+  conflict_resolution: ""
+  answered: true
+  skipped: false
+surgical:
+  files:
+    - path: services/comfyui/docker-compose.yml
+      necessary: true
+    - path: services/install.sh
+      necessary: true
+    - path: config.env
+      necessary: true
+    - path: .kata/awb-image-gen-infra.yaml
+      necessary: true
+  removed_imports_clean: true
+  answered: true
+  skipped: false
+verify:
+  ruff_clean: true
+  tests_pass: true
+  coverage_pct: 0.0
+  coverage_pass: false
+  success_criteria_met: true
+  attempts: 2
+  hand_back: false
+preflight:
+  skills_missing: []
+artifact:
+  intent_owed: true
+  intent_present: true
+  auth_owed: true
+  auth_present: true
+  pending_owed: true
+  pending_present: true
+  twins_owed: false
+  twins_present: true
+auth:
+  action_taken: true
+  authorized: true
+  action: "Instalação do serviço awb-comfyui (ComfyUI ghcr.io/ai-dock/comfyui) no AI-Workbench: services/comfyui/docker-compose.yml, flag INSTALL_COMFYUI=true em config.env, entrada _compose_up comfyui em services/install.sh; subida do container com GPU 5060 Ti dedicada, healthcheck e smoke test de geração de 1 imagem (B7: b)."
+  quote: "C2: (a) — Agora, após eu responder as perguntas"
+pending:
+  action: "Após a implementação e smoke test aprovados: atualizar a task wave6-app-kage com o contrato de integração do gerador (endpoint do ComfyUI via host.docker.internal:7860) para o Kage v2."
+  documented: true
+twins:
+  pattern: ""
+  result: ""
+  searched: false
+  defect_fixed: false
+  matches_count: 0
+  files_count: 0
+  fix_applied: false
