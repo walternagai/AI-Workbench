@@ -1,4 +1,5 @@
 # AI-Workbench Core v1.0
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg) ![CI](https://github.com/walternagai/AI-Workbench/actions/workflows/ci.yml/badge.svg)
 
 Framework open source para preparação automática de estações Linux
 destinadas ao desenvolvimento e execução de Inteligência Artificial Local.
@@ -8,6 +9,23 @@ aceleração), instala apenas os componentes compatíveis, padroniza ambientes
 Python, gerencia modelos locais, compila runtimes otimizados, executa
 benchmarks e gera diagnósticos completos — tudo de forma idempotente e
 observável.
+## Table of Contents
+- [Instalação rápida](#instalação‑rápida)
+- [Arquitetura](#arquitetura)
+- [Fluxo do instalador](#fluxo‑do‑instalador)
+- [Plataformas suportadas](#plataformas‑suportadas)
+- [Modelos](#modelos)
+- [Diagnóstico](#diagnóstico)
+- [Roadmap](#roadmap)
+- [Licença](#licença)
+
+## Requisitos de sistema
+
+- Sistema operacional: Ubuntu 22.04 LTS ou superior (ou Debian‑based).
+- Pacotes base: `git`, `curl`, `wget`, `bash`, `apt`, `make`.
+- Memória RAM recomendada: ≥ 8 GB (16 GB+ para modelos > 7 B).
+- Espaço em disco: ≥ 20 GB livre para downloads e models.
+- Suporte a GPU: driver NVIDIA ≥ 525, ou drivers AMD Mesa ≥ 23.0, ou Intel Mesa ≥ 23.1 para Vulkan.
 
 ## Instalação rápida
 
@@ -35,9 +53,20 @@ awb runtime install llama.cpp
 awb benchmark llm ~/ai/models/gguf/gemma-3n-E2B-it-Q8_0.gguf
 ```
 
+## Comandos CLI
+
+| Sub‑comando | Descrição |
+|---|---|
+| awb install | instala o ambiente completo |
+| awb doctor | executa diagnóstico |
+| awb model install <nome> | baixa modelo |
+| awb runtime install <nome> | instala runtime |
+| awb benchmark <target> <args> | roda benchmark |
+| awb info | exibe informações do sistema |
+
 ## Arquitetura
 
-```
+```text
 AI-Workbench/
 ├── install.sh        # orquestrador principal
 ├── update.sh          # atualização do framework e de runtimes/modelos
@@ -62,7 +91,7 @@ AI-Workbench/
 
 ## Fluxo do instalador
 
-```
+```text
 install.sh
   → validar SO / arquitetura / RAM / disco
   → atualizar sistema (apt update/upgrade + toolchain base)
