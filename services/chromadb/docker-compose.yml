@@ -9,6 +9,19 @@ services:
       - "${SERVICES_BIND_HOST:-127.0.0.1}:${CHROMADB_PORT:-8000}:8000"
     volumes:
       - chromadb_data:/chroma/chroma
+    networks:
+      - default
+      # Rede do hub Seiryu (compose em ~/dev/ninja-apps/seiryu): o nginx do
+      # hub resolve awb-chromadb por DNS de container no proxy
+      # /shiori/api/chroma (nginx.conf). Rede compartilhada declarativa —
+      # substitui o `docker network connect` manual, que era efêmero.
+      # Precedente: services/qdrant (bind no gateway) já atende o seiryu.
+      - seiryu-network
+
+networks:
+  seiryu-network:
+    external: true
+    name: seiryu_seiryu-network
 
 volumes:
   chromadb_data:
