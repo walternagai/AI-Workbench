@@ -158,11 +158,27 @@ to build, which Docker services to start, validation thresholds, default
 model — is a flag here, read via `is_true()`. This is what makes selective
 re-execution meaningful: flip a flag, re-run just that section.
 
-`config.env` is **tracked and the repo is public**, so it holds placeholders
-(`change-me`) rather than real secrets. `install.sh`, `doctor.sh` and
-`update.sh` each load `config.local.env` immediately afterwards — gitignored,
-optional, and loaded second so its values win. Real keys go there; see
-`config.local.env.example`.
+`config.env` is **tracked and the repo is public**, so it is meant to hold
+placeholders (`change-me`) rather than real secrets. `install.sh`, `doctor.sh`
+and `update.sh` each load `config.local.env` immediately afterwards —
+gitignored, optional, and loaded second so its values win. Real keys go there;
+see `config.local.env.example`. Caveat: at the time of writing the tracked
+`config.env` has high-entropy values for `WEBUI_SECRET_KEY` and
+`POSTGRES_PASSWORD`, not placeholders — never add new real secrets there, and
+treat those two as needing rotation + a move to `config.local.env`.
+
+**Docker services** (`services/<name>/docker-compose.yml`, driven by
+`services/install.sh`): openwebui, qdrant, chromadb, postgres, comfyui. Their
+network exposure is deliberately *not* uniform, and each compose file explains
+why in comments — check before "normalizing" them:
+- chromadb/postgres bind to `SERVICES_BIND_HOST` (default `127.0.0.1`);
+  chromadb additionally joins the external `seiryu_seiryu-network` (hub in a
+  sibling repo, `~/dev/ninja-apps/seiryu`) declaratively.
+- qdrant ignores `SERVICES_BIND_HOST` and binds to the docker gateway
+  `172.17.0.1`, so hub containers can reach it without LAN exposure.
+- comfyui is pinned to a dedicated GPU (`NVIDIA_VISIBLE_DEVICES=1`), bound
+  for `host.docker.internal:7860`, with auth off because access goes through
+  the Seiryu hub.
 
 **Reports & logs**: `reports/hardware.json`, `reports/doctor.{json,md}`,
 `reports/install_report.md` are generated artifacts (gitignored); `logs/installation.log`
