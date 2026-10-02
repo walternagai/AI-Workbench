@@ -30,3 +30,4 @@ diagram.mm
 
 # Local config overrides — secrets live here, never in the tracked config.env
 config.local.env
+.nova/
