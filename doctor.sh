@@ -23,7 +23,7 @@ load_env "${AWB_ROOT}/config.env" false
 
 # Optional local overrides, gitignored. Secrets belong here rather than in the
 # tracked config.env, which is public. Loaded second so its values win.
-load_env "${AWB_ROOT}/config.local.env" false
+load_local_env "${AWB_ROOT}/config.local.env"
 
 safe_source "${AWB_ROOT}/detect.sh"
 declare -F run_all_detections &>/dev/null || fail_loud "detect.sh loaded but run_all_detections() not found"

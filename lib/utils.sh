@@ -127,6 +127,23 @@ load_env() {
     fi
 }
 
+# load_local_env <path> — load_env for the gitignored secrets file. A file
+# readable by other users defeats keeping secrets out of the tracked config,
+# and a file owned by someone else is a file someone else can edit before we
+# `source` it, so both fail loud. A missing file is fine (it is optional).
+load_local_env() {
+    local path="$1" mode owner
+    if [[ -f "$path" ]]; then
+        mode="$(stat -c '%a' "$path")"
+        owner="$(stat -c '%u' "$path")"
+        [[ "$owner" == "$(id -u)" ]] \
+            || fail_loud "${path} is not owned by the current user; refusing to source it."
+        [[ "$mode" == "600" || "$mode" == "400" ]] \
+            || fail_loud "${path} has mode ${mode}; it holds secrets, run: chmod 600 ${path}"
+    fi
+    load_env "$path" false
+}
+
 # safe_source <path> — source a script only if it exists; fail-loud if missing.
 # Eliminates silent failures when a required module is absent.
 safe_source() {

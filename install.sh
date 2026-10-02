@@ -30,7 +30,7 @@ load_env "${AWB_ROOT}/config.env" true
 
 # Optional local overrides, gitignored. Secrets belong here rather than in the
 # tracked config.env, which is public. Loaded second so its values win.
-load_env "${AWB_ROOT}/config.local.env" false
+load_local_env "${AWB_ROOT}/config.local.env"
 
 # ---------------------------------------------------------------------------
 # CLI flags (menu-style partial re-execution; see also `make install-*`)
@@ -189,6 +189,7 @@ install_docker_ce() {
     sudo systemctl enable --now docker || log_warn "Could not start docker.service; start it manually before running services."
     # Rootless-ish convenience: let the installing user drive docker without sudo.
     sudo usermod -aG docker "${SUDO_USER:-$USER}" || true
+    log_warn "User '${SUDO_USER:-$USER}' was added to the 'docker' group, which is equivalent to passwordless root on this machine. Remove it (sudo gpasswd -d <user> docker) on shared workstations."
     log_ok "Docker Engine installed and started."
 }
 

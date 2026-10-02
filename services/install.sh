@@ -14,15 +14,14 @@ _compose_up() {
     log_ok "${name} is up."
 }
 
-# _warn_default_secret <config.env var name> <value> — deliberate log_warn +
-# continue (not fail_loud): config.env ships "change-me" placeholders so a
-# first install works out of the box, but they must not stay in place once
-# a service is actually exposed. See CLAUDE.md's fail-loud principle for why
-# this is one of the documented log_warn exceptions.
-_warn_default_secret() {
+# _require_real_secret <config var name> <value> — config.env is tracked and
+# public, so it ships "change-me" placeholders instead of real secrets. Real
+# values live in the gitignored config.local.env; starting a service on the
+# placeholder would run it with a publicly known credential, so abort.
+_require_real_secret() {
     local var_name="$1" value="$2"
     if [[ "$value" == "change-me" ]]; then
-        log_warn "${var_name} is still the default 'change-me' in config.env. Change it before exposing this service beyond localhost."
+        fail_loud "${var_name} is still the 'change-me' placeholder. Set a real value in config.local.env (see config.local.env.example)."
     fi
 }
 
@@ -34,13 +33,13 @@ install_services() {
     require_cmd docker "running AI-Workbench services"
 
     is_true "${INSTALL_OPENWEBUI:-true}" && {
-        _warn_default_secret "WEBUI_SECRET_KEY" "${WEBUI_SECRET_KEY:-}"
+        _require_real_secret "WEBUI_SECRET_KEY" "${WEBUI_SECRET_KEY:-}"
         _compose_up openwebui
     }
     is_true "${INSTALL_QDRANT:-false}"    && _compose_up qdrant
     is_true "${INSTALL_CHROMADB:-false}"  && _compose_up chromadb
     is_true "${INSTALL_POSTGRES:-false}"  && {
-        _warn_default_secret "POSTGRES_PASSWORD" "${POSTGRES_PASSWORD:-}"
+        _require_real_secret "POSTGRES_PASSWORD" "${POSTGRES_PASSWORD:-}"
         _compose_up postgres
     }
     is_true "${INSTALL_COMFYUI:-false}"   && _compose_up comfyui

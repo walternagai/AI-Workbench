@@ -119,7 +119,7 @@ _section_names() {
     # the service starts with 'change-me'.
     for f in install.sh doctor.sh update.sh; do
         base="$(grep -n 'load_env .*config\.env' "${AWB_ROOT}/${f}" | head -1 | cut -d: -f1)"
-        local_="$(grep -n 'load_env .*config\.local\.env' "${AWB_ROOT}/${f}" | head -1 | cut -d: -f1)"
+        local_="$(grep -nE 'load_(local_)?env .*config\.local\.env' "${AWB_ROOT}/${f}" | head -1 | cut -d: -f1)"
         [ -n "$local_" ] || { echo "${f} never loads config.local.env"; return 1; }
         [ "$local_" -gt "$base" ] || { echo "${f} loads config.local.env at line ${local_}, before config.env at ${base}"; return 1; }
     done
