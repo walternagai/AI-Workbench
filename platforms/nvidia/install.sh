@@ -47,8 +47,14 @@ install_nvidia_container_toolkit() {
         | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit.gpg \
         || fail_loud "Failed to fetch NVIDIA Container Toolkit GPG key"
 
-    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
-        | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit.gpg] https://#' \
+    # -f so an HTTP error page is not written into sources.list.d; the grep
+    # rejects a 200 response that is not an apt list either.
+    local nv_list
+    nv_list="$(curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list)" \
+        || fail_loud "Failed to fetch the NVIDIA Container Toolkit apt list"
+    grep -q '^deb ' <<<"$nv_list" \
+        || fail_loud "NVIDIA Container Toolkit apt list is not a valid apt source; refusing to install it"
+    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit.gpg] https://#' <<<"$nv_list" \
         | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list >/dev/null
 
     sudo apt-get update -y || fail_loud "apt-get update failed after adding NVIDIA Container Toolkit repo"
