@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
-# Security guards: secrets placeholders and config.local.env permissions.
-# Hermetic — no network, gpg or sudo needed.
+# Security guards: secrets placeholders, config.local.env permissions, and
+# NPU driver signature checking. Hermetic — no network, gpg or sudo needed.
 
 setup() {
     export AWB_ROOT HOME
@@ -60,4 +60,55 @@ teardown() {
     [ "$status" -ne 0 ]
     [[ "$output" == *"chmod 600"* ]]
     [ -z "${AWB_TEST_SECRET:-}" ]
+}
+
+# --- NPU signature verification ----------------------------------------------------
+
+_npu_setup() {
+    source "${BATS_TEST_DIRNAME}/../../platforms/intel/npu.sh"
+    export AWB_NPU_GPG_FINGERPRINT="AAAA1111"
+    mkdir -p "${AWB_ROOT}/bin"
+    PATH="${AWB_ROOT}/bin:${PATH}"
+    : > "${AWB_ROOT}/drv.deb"
+}
+
+# gpg stub: $1 is the VALIDSIG line to print (empty = exit 1 like a bad sig).
+_stub_gpg() {
+    if [ -n "$1" ]; then
+        printf '#!/bin/sh\necho "[GNUPG:] VALIDSIG %s"\n' "$1" > "${AWB_ROOT}/bin/gpg"
+    else
+        printf '#!/bin/sh\nexit 1\n' > "${AWB_ROOT}/bin/gpg"
+    fi
+    chmod +x "${AWB_ROOT}/bin/gpg"
+}
+
+@test "_npu_verify_debs: passes when signed by the pinned fingerprint" {
+    _npu_setup
+    : > "${AWB_ROOT}/drv.deb.asc"
+    _stub_gpg "AAAA1111 2024-01-01"
+    run _npu_verify_debs "${AWB_ROOT}/drv.deb"
+    [ "$status" -eq 0 ]
+}
+
+@test "_npu_verify_debs: rejects a valid signature from a different key" {
+    _npu_setup
+    : > "${AWB_ROOT}/drv.deb.asc"
+    _stub_gpg "BBBB2222 2024-01-01"
+    run _npu_verify_debs "${AWB_ROOT}/drv.deb"
+    [ "$status" -ne 0 ]
+}
+
+@test "_npu_verify_debs: rejects a failed signature check" {
+    _npu_setup
+    : > "${AWB_ROOT}/drv.deb.asc"
+    _stub_gpg ""
+    run _npu_verify_debs "${AWB_ROOT}/drv.deb"
+    [ "$status" -ne 0 ]
+}
+
+@test "_npu_verify_debs: rejects a .deb with no signature file" {
+    _npu_setup
+    _stub_gpg "AAAA1111 2024-01-01"
+    run _npu_verify_debs "${AWB_ROOT}/drv.deb"
+    [ "$status" -ne 0 ]
 }

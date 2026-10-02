@@ -13,6 +13,24 @@ AWB_ROOT="${AWB_ROOT:?must be sourced from install.sh}"
 AWB_NPU_GH_REPO="intel/linux-npu-driver"
 AWB_NPU_SRC="${AI_HOME:-$HOME/ai}/src/intel-npu-driver"
 
+# _npu_verify_debs <deb>... — every .deb must have a sibling <deb>.asc whose
+# signature verifies against AWB_NPU_GPG_FINGERPRINT. The key must already be
+# in the user's gpg keyring: a key fetched from the same release as the
+# tarball would prove nothing, which is why the fingerprint is pinned by the
+# user rather than discovered. Checking VALIDSIG for the pinned fingerprint
+# (not just "gpg exited 0") rejects a good signature by some other key.
+_npu_verify_debs() {
+    local deb sig status
+    for deb in "$@"; do
+        sig="${deb}.asc"
+        [[ -f "$sig" ]] || { log_warn "No signature file for $(basename "$deb")"; return 1; }
+        status="$(gpg --status-fd 1 --verify "$sig" "$deb" 2>/dev/null)" \
+            || { log_warn "Signature check failed for $(basename "$deb")"; return 1; }
+        grep -q "^\[GNUPG:\] VALIDSIG .*${AWB_NPU_GPG_FINGERPRINT}" <<<"$status" \
+            || { log_warn "$(basename "$deb") is not signed by ${AWB_NPU_GPG_FINGERPRINT}"; return 1; }
+    done
+}
+
 install_intel_npu() {
     log_step "Installing Intel NPU driver"
 
@@ -66,6 +84,14 @@ install_intel_npu() {
     if (( ${#debs[@]} == 0 )); then
         log_warn "NPU driver archive contained no .deb packages; skipping (non-fatal)."
         return 0
+    fi
+
+    if [[ -n "${AWB_NPU_GPG_FINGERPRINT:-}" ]]; then
+        has_cmd gpg || { log_warn "gpg not found; cannot verify the NPU driver, skipping (non-fatal)."; return 0; }
+        _npu_verify_debs "${debs[@]}" \
+            || { log_warn "NPU driver signature verification failed; skipping install (non-fatal)."; return 0; }
+    else
+        log_warn "AWB_NPU_GPG_FINGERPRINT is not set: installing the NPU driver WITHOUT verifying its signature. Pin Intel's signing key fingerprint in config.local.env to enable verification."
     fi
 
     sudo dpkg -i "${debs[@]}" \
