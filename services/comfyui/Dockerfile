@@ -41,6 +41,8 @@ RUN cd /opt/ComfyUI && \
 ARG DDCOLOR_NODE_REF=30d5b8e7666382a6a78404caee28dfa87f741037
 ARG DDCOLOR_TINY_SHA256=81dd643904f4664c3718513e3320ae3db0c567f0d3e18398606659adee7bfc17
 ARG DDCOLOR_PAPER_SHA256=789781789db1bafc2165e1cf9658580f871cce64a81901ec49127877813f10b9
+ARG DDCOLOR_ARTISTIC_SHA256=a591ee5beedad36de703d8977e92d0c30c1eedc6453fd1b300f3b460842a23a9
+ARG DDCOLOR_MODELSCOPE_SHA256=17c460d7e55b32a598370621d77173be59e03c24b0823f06821db23a50c263ce
 ARG REALESRGAN_SHA256=4fa0d38905f75ac06eb49a7951b426670021be3018265fd191d2125df9d682f1
 
 RUN git clone --quiet https://github.com/kijai/ComfyUI-DDColor \
@@ -61,7 +63,11 @@ RUN set -eux; \
     echo "${DDCOLOR_TINY_SHA256}  $dir/ddcolor_paper_tiny.pth" | sha256sum -c -; \
     curl -fsSL -o "$dir/ddcolor_paper.pth" \
         https://huggingface.co/piddnad/DDColor-models/resolve/main/ddcolor_paper.pth; \
-    echo "${DDCOLOR_PAPER_SHA256}  $dir/ddcolor_paper.pth" | sha256sum -c -
+    echo "${DDCOLOR_PAPER_SHA256}  $dir/ddcolor_paper.pth" | sha256sum -c -; \
+    curl -fsSL -o "$dir/ddcolor_artistic.pth" https://huggingface.co/piddnad/DDColor-models/resolve/main/ddcolor_artistic.pth; \
+    echo "${DDCOLOR_ARTISTIC_SHA256}  $dir/ddcolor_artistic.pth" | sha256sum -c -; \
+    curl -fsSL -o "$dir/ddcolor_modelscope.pth" https://huggingface.co/piddnad/DDColor-models/resolve/main/ddcolor_modelscope.pth; \
+    echo "${DDCOLOR_MODELSCOPE_SHA256}  $dir/ddcolor_modelscope.pth" | sha256sum -c -
 
 RUN set -eux; \
     curl -fsSL -o /opt/ComfyUI/models/upscale_models/RealESRGAN_x4plus.pth \
