@@ -9,10 +9,10 @@ services:
   comfyui:
     # Imagem construída a partir da 0.42.1 em uso (torch 2.7.1+cu128) com as
     # camadas de restauração: DDColor (colorização) e Real-ESRGAN (upscale).
-    # Reconstruir com `docker build -t seiryu/comfyui:0.42.1-cu128-color
+    # Reconstruir com `docker build -t seiryu/comfyui:0.42.1-cu128-restore
     # services/comfyui/`.
     # Rollback: apontar para seiryu/comfyui:0.42.1-cu128 e recriar.
-    image: seiryu/comfyui:0.42.1-cu128-color
+    image: seiryu/comfyui:0.42.1-cu128-restore
     container_name: awb-comfyui
     restart: unless-stopped
     ports:

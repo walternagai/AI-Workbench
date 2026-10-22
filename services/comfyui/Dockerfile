@@ -75,3 +75,62 @@ RUN /opt/environments/python/comfyui/bin/python -c \
     test -s /opt/ComfyUI/custom_nodes/ComfyUI-DDColor/checkpoints/ddcolor_paper.pth && \
     test -s /opt/ComfyUI/custom_nodes/ComfyUI-DDColor/checkpoints/ddcolor_paper_tiny.pth && \
     test -s /opt/ComfyUI/models/upscale_models/RealESRGAN_x4plus.pth
+
+# ── Rosto (GFPGAN) e riscos (LaMa) ─────────────────────────────────────
+# GFPGAN: node comfyorg/comfyui_gfpgan (Apache-2.0) pinado; usa
+# basicsr-fixed (fork compatível com torchvision novo) e facexlib. Os pesos
+# (GFPGANv1.4 + detecção + parsing) entram na imagem — o node baixaria em
+# runtime. LaMa: node Acly/comfyui-inpaint-nodes (GPL-3.0) pinado; modelo
+# big-lama.pt (Apache-2.0, advimman/lama) em models/inpaint.
+ARG GFPGAN_NODE_REF=77577e49ae49e59e44098549d8d04ab2cba87fda
+ARG INPAINT_NODE_REF=5b7681746fe19e563113d27366ba85236bc1ba5b
+ARG GFPGAN_SHA256=e2cd4703ab14f4d01fd1383a8a8b266f9a5833dacee8e6a79d3bf21a1b6be5ad
+ARG FACE_DETECTION_SHA256=6d1de9c2944f2ccddca5f5e010ea5ae64a39845a86311af6fdf30841b0a5a16d
+ARG FACE_PARSING_SHA256=468e13ca13a9b43cc0881a9f99083a430e9c0a38abd935431d1c28ee94b26567
+ARG LAMA_SHA256=344c77bbcb158f17dd143070d1e789f38a66c04202311ae3a258ef66667a9ea9
+
+RUN git clone --quiet https://github.com/comfyorg/comfyui_gfpgan \
+        /opt/ComfyUI/custom_nodes/comfyui_gfpgan && \
+    git -C /opt/ComfyUI/custom_nodes/comfyui_gfpgan checkout --quiet "${GFPGAN_NODE_REF}" && \
+    rm -rf /opt/ComfyUI/custom_nodes/comfyui_gfpgan/.git && \
+    git clone --quiet https://github.com/Acly/comfyui-inpaint-nodes \
+        /opt/ComfyUI/custom_nodes/comfyui-inpaint-nodes && \
+    git -C /opt/ComfyUI/custom_nodes/comfyui-inpaint-nodes checkout --quiet "${INPAINT_NODE_REF}" && \
+    rm -rf /opt/ComfyUI/custom_nodes/comfyui-inpaint-nodes/.git
+
+# Bug do node no commit pinado: gfpganer.py usa warnings.warn sem importar
+# warnings — o enhance() estoura, o node engole a exceção e devolve a imagem
+# original (o "restaurar rosto" não fazia nada). Correção de uma linha.
+RUN sed -i '1i import warnings' /opt/ComfyUI/custom_nodes/comfyui_gfpgan/src/comfyui_gfpgan/gfpganer.py && \
+    grep -q '^import warnings' /opt/ComfyUI/custom_nodes/comfyui_gfpgan/src/comfyui_gfpgan/gfpganer.py
+
+# basicsr-fixed evita o basicsr original (quebrado com torchvision novo);
+# gfpgan entra com --no-deps para não puxar basicsr/tb-nightly. facexlib
+# traz filterpy/numba.
+RUN /opt/environments/python/comfyui/bin/pip install --no-cache-dir \
+        "basicsr-fixed==1.4.2" "facexlib==0.3.0" && \
+    /opt/environments/python/comfyui/bin/pip install --no-cache-dir --no-deps "gfpgan==1.3.8"
+
+RUN set -eux; \
+    mkdir -p /opt/ComfyUI/models/face_restoration \
+             /opt/ComfyUI/models/face_detection \
+             /opt/ComfyUI/models/inpaint; \
+    curl -fsSL -o /opt/ComfyUI/models/face_restoration/GFPGANv1.4.pth \
+        https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth; \
+    echo "${GFPGAN_SHA256}  /opt/ComfyUI/models/face_restoration/GFPGANv1.4.pth" | sha256sum -c -; \
+    curl -fsSL -o /opt/ComfyUI/models/face_detection/detection_Resnet50_Final.pth \
+        https://github.com/xinntao/facexlib/releases/download/v0.1.0/detection_Resnet50_Final.pth; \
+    echo "${FACE_DETECTION_SHA256}  /opt/ComfyUI/models/face_detection/detection_Resnet50_Final.pth" | sha256sum -c -; \
+    curl -fsSL -o /opt/ComfyUI/models/face_detection/parsing_bisenet.pth \
+        https://github.com/xinntao/facexlib/releases/download/v0.2.0/parsing_bisenet.pth; \
+    echo "${FACE_PARSING_SHA256}  /opt/ComfyUI/models/face_detection/parsing_bisenet.pth" | sha256sum -c -; \
+    curl -fsSL -o /opt/ComfyUI/models/inpaint/big-lama.pt \
+        https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt; \
+    echo "${LAMA_SHA256}  /opt/ComfyUI/models/inpaint/big-lama.pt" | sha256sum -c -
+
+RUN /opt/environments/python/comfyui/bin/python -c \
+    "import basicsr, facexlib, gfpgan, cv2, spandrel; print('restore deps ok')" && \
+    test -s /opt/ComfyUI/models/face_restoration/GFPGANv1.4.pth && \
+    test -s /opt/ComfyUI/models/face_detection/detection_Resnet50_Final.pth && \
+    test -s /opt/ComfyUI/models/face_detection/parsing_bisenet.pth && \
+    test -s /opt/ComfyUI/models/inpaint/big-lama.pt
