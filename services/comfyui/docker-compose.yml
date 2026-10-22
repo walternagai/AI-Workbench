@@ -7,7 +7,11 @@
 # filtrado pelo auth_request do nginx do hub — nunca exposto direto.
 services:
   comfyui:
-    image: ghcr.io/ai-dock/comfyui:latest
+    # Imagem construída a partir do snapshot do estado real (torch 2.7.1+cu128,
+    # ComfyUI v0.42.1). Reconstruir com `docker build -t seiryu/comfyui:0.42.1-cu128
+    # services/comfyui/` — o Dockerfile usa o snapshot local como base.
+    # Rollback: apontar para seiryu/comfyui:snapshot-0.37.1-cu128 e recriar.
+    image: seiryu/comfyui:0.42.1-cu128
     container_name: awb-comfyui
     restart: unless-stopped
     ports:
