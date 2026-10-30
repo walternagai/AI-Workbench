@@ -7,12 +7,13 @@
 # filtrado pelo auth_request do nginx do hub — nunca exposto direto.
 services:
   comfyui:
-    # Imagem construída a partir da 0.42.1 em uso (torch 2.7.1+cu128) com as
-    # camadas de restauração: DDColor (colorização) e Real-ESRGAN (upscale).
-    # Reconstruir com `docker build -t seiryu/comfyui:0.42.1-cu128-restore
-    # services/comfyui/`.
-    # Rollback: apontar para seiryu/comfyui:0.42.1-cu128 e recriar.
-    image: seiryu/comfyui:0.42.1-cu128-restore
+    # Imagem construída em camadas: base 0.42.1 (torch 2.7.1+cu128) com as
+    # camadas de restauração (DDColor/Real-ESRGAN/GFPGAN/LaMa) e, por cima, o
+    # código do ComfyUI 0.43.2 — os pesos e custom nodes são preservados.
+    # Reconstruir com:
+    #   docker build --target comfyui-0.43 -t seiryu/comfyui:0.43.2-cu128-restore services/comfyui/
+    # Rollback: apontar para seiryu/comfyui:0.42.1-cu128-restore e recriar.
+    image: seiryu/comfyui:0.43.2-cu128-restore
     container_name: awb-comfyui
     restart: unless-stopped
     ports:

@@ -29,7 +29,7 @@ FROM seiryu/comfyui:0.42.1-cu128
 RUN cd /opt/ComfyUI && \
     /opt/environments/python/comfyui/bin/python -c \
     "import torch, comfyui_version; print('comfyui', comfyui_version.__version__, 'torch', torch.__version__, 'cuda', torch.version.cuda)" && \
-    git describe --tags
+    git describe --tags --always
 
 # ── Restauração de fotos: colorização (DDColor) e upscale (Real-ESRGAN) ──
 # DDColor: node kijai/ComfyUI-DDColor (Apache-2.0) pinado no commit; pesos
@@ -140,3 +140,21 @@ RUN /opt/environments/python/comfyui/bin/python -c \
     test -s /opt/ComfyUI/models/face_detection/detection_Resnet50_Final.pth && \
     test -s /opt/ComfyUI/models/face_detection/parsing_bisenet.pth && \
     test -s /opt/ComfyUI/models/inpaint/big-lama.pt
+
+# ── Atualização do ComfyUI: 0.42.1 → 0.43.2 ─────────────────────────────────
+# Stage incremental sobre a imagem de restauração (0.42.1-cu128-restore):
+# troca só o código do ComfyUI e as dependências Python; os pesos em
+# /opt/ComfyUI/models e os custom_nodes ficam intactos. O requirements não
+# pina torch, então o 2.7.1+cu128 da base é mantido (Blackwell/sm_120).
+# Build:
+#   docker build --target comfyui-0.43 -t seiryu/comfyui:0.43.2-cu128-restore services/comfyui/
+# Rollback: apontar o compose de volta para seiryu/comfyui:0.42.1-cu128-restore.
+FROM seiryu/comfyui:0.42.1-cu128-restore AS comfyui-0.43
+ARG COMFYUI_REF=v0.43.2
+RUN cd /opt/ComfyUI && \
+    git fetch --depth 1 origin "refs/tags/${COMFYUI_REF}" && \
+    git checkout -q FETCH_HEAD && \
+    /opt/environments/python/comfyui/bin/pip install --no-cache-dir -r requirements.txt && \
+    /opt/environments/python/comfyui/bin/python -c \
+    "import torch, comfyui_version; print('comfyui', comfyui_version.__version__, 'torch', torch.__version__, 'cuda', torch.version.cuda)" && \
+    git describe --tags --always
