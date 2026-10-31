@@ -31,6 +31,25 @@ mkdir npu-driver && tar -xzf npu-driver.tar.gz -C npu-driver
 sudo dpkg -i npu-driver/*.deb   # excludes *.ddeb (debug) and *.asc (signatures)
 ```
 
+### Level Zero loader (`libze1`)
+
+The NPU driver packages (`intel-level-zero-npu`, `intel-driver-compiler-npu`,
+`intel-fw-npu`) do not pull in the Level Zero loader. Without it OpenVINO
+enumerates only `CPU` and `GPU`, even with the `intel_vpu` module loaded and
+the firmware accepted. `platforms/intel/npu.sh` installs `libze1` on every run
+where an NPU is detected, including when the driver was installed earlier.
+To do it by hand:
+
+```bash
+sudo apt-get install -y libze1
+~/venvs/openvino/bin/python -c "import openvino as o; print(o.Core().available_devices)"
+# expected: ['CPU', 'GPU', 'NPU']
+```
+
+`./doctor.sh` reports the loader and the access to `/dev/accel/accel0` under
+the Intel section. The device node is `root:render` with mode `0660`, so the
+user must be in the `render` group.
+
 ## oneAPI runtime
 
 Unlike the NPU driver, oneAPI redistributable runtime libraries **are**

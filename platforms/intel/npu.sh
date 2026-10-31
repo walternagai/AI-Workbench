@@ -31,6 +31,24 @@ _npu_verify_debs() {
     done
 }
 
+# _npu_ensure_level_zero_loader — OpenVINO's NPU plugin and the Level Zero
+# clients load libze_loader.so.1 from the libze1 package. The NPU driver
+# packages do not depend on it, so a machine with the driver and firmware
+# already installed can still hide the NPU from OpenVINO. Runs before the
+# "already installed" early return so existing installs get it too.
+_npu_ensure_level_zero_loader() {
+    if dpkg -s libze1 &>/dev/null; then
+        log_ok "Level Zero loader (libze1) already installed."
+        return 0
+    fi
+
+    apt_update_once
+    sudo apt-get install -y libze1 \
+        || { log_warn "Failed to install libze1 (Level Zero loader); OpenVINO will not see the NPU. Install it with: sudo apt-get install -y libze1"; return 0; }
+
+    log_ok "Level Zero loader (libze1) installed."
+}
+
 install_intel_npu() {
     log_step "Installing Intel NPU driver"
 
@@ -38,6 +56,8 @@ install_intel_npu() {
         log_info "No Intel NPU detected on this system; skipping."
         return 0
     fi
+
+    _npu_ensure_level_zero_loader
 
     if dpkg -s intel-driver-compiler-npu &>/dev/null; then
         log_ok "Intel NPU driver already installed."

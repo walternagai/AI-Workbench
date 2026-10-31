@@ -196,6 +196,18 @@ if [[ "${PLATFORM_TARGET:-}" == "intel" ]]; then
         "${GPU_MODEL:-unknown}"
     if [[ "${HAS_INTEL_NPU:-false}" == "true" ]]; then
         check_true "Intel NPU" "${HAS_INTEL_NPU}" "" "accel device present"
+        # The driver talks to the NPU through libze1; without it OpenVINO
+        # enumerates only CPU/GPU even though the device is there.
+        if dpkg -s libze1 &>/dev/null; then
+            check "Level Zero loader (libze1)" pass
+        else
+            check "Level Zero loader (libze1)" fail "sudo apt-get install -y libze1 (OpenVINO cannot see the NPU without it)"
+        fi
+        if [[ -r /dev/accel/accel0 && -w /dev/accel/accel0 ]]; then
+            check "NPU device access" pass "/dev/accel/accel0"
+        else
+            check "NPU device access" fail "no rw access to /dev/accel/accel0 — add your user to the 'render' group and re-login"
+        fi
     else
         check "Intel NPU" skip "no NPU present on this CPU"
     fi
