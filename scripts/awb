@@ -17,6 +17,7 @@
 #   awb runtime update <name>
 #   awb runtime remove <name>
 #   awb benchmark <llm|whisper|vision|embeddings> [args...]
+#   awb benchmark llm sweep -o out.csv [-r N] [-p N] [-n N] [-t L] [-l L] [-b L] <model.gguf>...
 set -euo pipefail
 
 # Resolve through symlinks before deriving AWB_ROOT. This script is meant to be
