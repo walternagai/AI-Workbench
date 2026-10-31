@@ -4,14 +4,6 @@
 set -euo pipefail
 AWB_ROOT="${AWB_ROOT:?must be sourced from install.sh}"
 
-_onnxruntime_package() {
-    case "${PLATFORM_TARGET:-cpu}" in
-        nvidia) echo "onnxruntime-gpu" ;;
-        intel)  echo "onnxruntime-openvino" ;;
-        *)      echo "onnxruntime" ;;
-    esac
-}
-
 install_onnxruntime() {
     log_step "Installing ONNX Runtime"
 
@@ -19,7 +11,7 @@ install_onnxruntime() {
     [[ -d "$venv" ]] || fail_loud "vision venv missing at ${venv}. Run './install.sh --only python' first, or './install.sh' for a full install."
 
     local package
-    package="$(_onnxruntime_package)"
+    package="$(onnxruntime_package_for "${PLATFORM_TARGET:-cpu}")"
 
     # shellcheck disable=SC1091
     source "$venv/bin/activate"
@@ -37,7 +29,7 @@ update_onnxruntime() {
     [[ -d "$venv" ]] || fail_loud "vision venv missing; run install first."
 
     local package
-    package="$(_onnxruntime_package)"
+    package="$(onnxruntime_package_for "${PLATFORM_TARGET:-cpu}")"
 
     # shellcheck disable=SC1091
     source "$venv/bin/activate"

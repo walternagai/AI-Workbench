@@ -20,7 +20,8 @@ _ensure_nvidia_cuda_apt_repo() {
 
     require_cmd curl "adding the NVIDIA CUDA apt repository"
 
-    local os_tag="ubuntu${OS_VERSION//./}"
+    local os_tag
+    os_tag="$(awb_ubuntu_tag)"
     local keyring_url="https://developer.download.nvidia.com/compute/cuda/repos/${os_tag}/x86_64/cuda-keyring_1.1-1_all.deb"
     local keyring_deb
     keyring_deb="$(mktemp /tmp/cuda-keyring.XXXXXX.deb)"

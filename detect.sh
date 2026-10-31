@@ -6,7 +6,9 @@
 #
 # Can be sourced (exports variables for install.sh/doctor.sh) or run
 # directly (prints a human-readable summary + writes reports/hardware.json).
-set -euo pipefail
+# No `set -e` here, deliberately. This file is sourced by doctor.sh, which
+# runs without -e so one failed check cannot stop the diagnosis. The option
+# is applied only when the file runs directly (see the bottom of the file).
 
 AWB_ROOT="${AWB_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 # shellcheck source=lib/colors.sh
@@ -354,6 +356,7 @@ print_summary() {
 # Only run standalone logic if executed directly, not when sourced by
 # install.sh/doctor.sh (which just want the exported variables).
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    set -euo pipefail
     run_all_detections
     resolve_platform_target
     print_summary

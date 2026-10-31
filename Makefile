@@ -5,6 +5,12 @@
 
 SHELL := /bin/bash
 
+# Python test runner. The dedicated venv wins when it exists, so `make test`
+# does not depend on whatever PATH the shell has. Without it (CI, for one),
+# the pytest on PATH is used. Override the venv with AWB_TEST_VENV=<dir>.
+AWB_TEST_VENV ?= $(HOME)/venvs/awb-test
+AWB_PYTEST := $(shell if [ -x "$(AWB_TEST_VENV)/bin/pytest" ]; then echo "$(AWB_TEST_VENV)/bin/pytest"; else command -v pytest 2>/dev/null; fi)
+
 help:
 	@echo "AI-Workbench Core v1.0"
 	@echo ""
@@ -121,9 +127,9 @@ test-bats:
 	bats tests/bats/
 
 test-python:
-	@command -v pytest >/dev/null \
-	  || { echo "pytest not installed: pip install -r requirements-test.txt" >&2; exit 1; }
-	pytest --cov
+	@test -n "$(AWB_PYTEST)" \
+	  || { echo "pytest not installed: python3 -m venv $(AWB_TEST_VENV) && $(AWB_TEST_VENV)/bin/pip install -r requirements-test.txt" >&2; exit 1; }
+	$(AWB_PYTEST) --cov
 
 clean-logs:
 	rm -f logs/*.log logs/*.log.*

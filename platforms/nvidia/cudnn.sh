@@ -14,11 +14,13 @@ install_nvidia_cudnn() {
 
     _ensure_nvidia_cuda_apt_repo || true
 
-    if dpkg -l | grep -q '^ii  nvidia-cudnn'; then
+    # grep >/dev/null, not grep -q: with pipefail, grep -q exits on the first
+    # match and dpkg then dies of SIGPIPE, so a real match read as absent (M4).
+    if dpkg -l | grep '^ii  nvidia-cudnn' >/dev/null; then
         log_ok "nvidia-cudnn already installed; skipping cuDNN 9 metapackage to avoid conflicts."
         return 0
     fi
-    if dpkg -l | grep -q '^ii  libcudnn9-dev-cuda-'; then
+    if dpkg -l | grep '^ii  libcudnn9-dev-cuda-' >/dev/null; then
         log_ok "libcudnn9-dev-cuda-* already installed; skipping."
         return 0
     fi
@@ -35,11 +37,11 @@ install_nvidia_cudnn() {
     # the whole apt state inconsistent and takes every later install down.
     # The version check is belt-and-braces on top of the guard above, and the
     # conflict check keeps this section best-effort: skip rather than break.
-    if apt-cache policy "$pkg" 2>/dev/null | grep -q 'Candidate:'; then
+    if apt-cache policy "$pkg" 2>/dev/null | grep 'Candidate:' >/dev/null; then
         local cand
         cand=$(apt-cache policy "$pkg" 2>/dev/null | awk '/Candidate:/{print $2; exit}')
         if [[ "$cand" =~ ^9\.[0-9]+ ]] \
-            && dpkg -l nvidia-cudnn 2>/dev/null | grep -q '^ii'; then
+            && dpkg -l nvidia-cudnn 2>/dev/null | grep '^ii' >/dev/null; then
             log_warn "cuDNN 9 ($cand) conflicts with the installed legacy nvidia-cudnn; keeping 8.9 (PyTorch's bundled cuDNN via pip is used for fine-tuning)."
             log_ok "cuDNN step complete (best-effort)."
             return 0

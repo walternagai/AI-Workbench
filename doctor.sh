@@ -258,12 +258,15 @@ else
     check "OpenVINO venv" skip "INSTALL_OPENVINO disabled in config.env"
 fi
 if is_true "${INSTALL_ONNXRUNTIME:-true}"; then
+    # The wheel depends on the platform, the same mapping the runtime installs
+    # with (M6). A fixed name made every NVIDIA or CPU host look broken.
+    _ort_pkg="$(onnxruntime_package_for "${PLATFORM_TARGET:-cpu}")"
     if [[ ! -d "$HOME/venvs/vision" ]]; then
         check "ONNX Runtime venv (vision)" fail "$HOME/venvs/vision missing — run: awb install --only python"
-    elif _ver="$(_venv_pkg_version vision onnxruntime-openvino)"; then
-        check "ONNX Runtime venv (vision)" pass "onnxruntime-openvino ${_ver}"
+    elif _ver="$(_venv_pkg_version vision "$_ort_pkg")"; then
+        check "ONNX Runtime venv (vision)" pass "${_ort_pkg} ${_ver}"
     else
-        check "ONNX Runtime venv (vision)" warn "venv exists but 'onnxruntime-openvino' is not installed in it — run: awb install --only runtimes"
+        check "ONNX Runtime venv (vision)" warn "venv exists but '${_ort_pkg}' is not installed in it — run: awb install --only runtimes"
     fi
 else
     check "ONNX Runtime venv (vision)" skip "INSTALL_ONNXRUNTIME disabled in config.env"

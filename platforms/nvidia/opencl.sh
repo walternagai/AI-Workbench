@@ -10,7 +10,7 @@ install_nvidia_opencl() {
     sudo apt-get install -y clinfo ocl-icd-libopencl1 \
         || fail_loud "Failed to install clinfo"
 
-    if has_cmd clinfo && clinfo -l 2>/dev/null | grep -qi nvidia; then
+    if has_cmd clinfo && clinfo -l 2>/dev/null | grep -i nvidia >/dev/null; then
         log_ok "OpenCL functional via NVIDIA driver."
     else
         log_warn "OpenCL packages installed but no NVIDIA platform detected by clinfo. This is non-fatal; CUDA remains the primary acceleration path."

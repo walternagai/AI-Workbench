@@ -8,13 +8,17 @@ monitor_gpu() {
     case "${GPU_VENDOR:-}" in
         NVIDIA)
             if has_cmd nvidia-smi; then
+                # A driver that is not loaded makes nvidia-smi fail. Under
+                # pipefail and set -e that aborted `awb monitor` silently (M5).
                 nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu \
-                    --format=csv,noheader | sed 's/^/  /'
+                    --format=csv,noheader | sed 's/^/  /' \
+                    || echo "  nvidia-smi não respondeu (driver carregado?)"
             fi
             ;;
         AMD)
             if has_cmd rocm-smi; then
-                rocm-smi --showuse --showmemuse --showtemp | sed 's/^/  /'
+                rocm-smi --showuse --showmemuse --showtemp | sed 's/^/  /' \
+                    || echo "  rocm-smi não respondeu (driver carregado?)"
             fi
             ;;
         Intel)

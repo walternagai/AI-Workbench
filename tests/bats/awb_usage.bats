@@ -47,7 +47,11 @@ setup() {
     [ "$status" -eq 0 ]
     [[ "${lines[0]}" == "scripts/awb — AI-Workbench CLI entrypoint." ]] \
         || { echo "unexpected first line: ${lines[0]}"; return 1; }
-    [[ "${lines[-1]}" == "  awb benchmark <llm|whisper|vision|embeddings> [args...]" ]] \
+    # The last documented line is the `benchmark llm sweep` entry. The sweep
+    # subcommand was documented after the generic benchmark line in b2afb40,
+    # which moved the end of the header. Update this with the header, not the
+    # other way round.
+    [[ "${lines[-1]}" == "  awb benchmark llm sweep -o out.csv [-r N] [-p N] [-n N] [-t L] [-l L] [-b L] <model.gguf>..." ]] \
         || { echo "unexpected last line: ${lines[-1]}"; return 1; }
 }
 

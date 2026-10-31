@@ -12,7 +12,9 @@ AWB_ROOT="${AWB_ROOT:?must be sourced from install.sh}"
 install_intel_oneapi_runtime() {
     log_step "Installing oneAPI runtime (optional)"
 
-    if ! apt-cache search intel-oneapi-runtime-opencl 2>/dev/null | grep -q .; then
+    # grep >/dev/null, not grep -q: see cudnn.sh (M4). An early exit here made
+    # apt-cache die of SIGPIPE and reported "not configured" when the repo was there.
+    if ! apt-cache search intel-oneapi-runtime-opencl 2>/dev/null | grep . >/dev/null; then
         log_warn "oneAPI apt repository not configured; skipping (non-fatal). See docs/PLATFORM_INTEL.md to add it manually if needed."
         return 0
     fi

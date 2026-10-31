@@ -164,12 +164,11 @@ install_docker_ce() {
         *) fail_loud "Unsupported architecture for Docker Engine: $arch" ;;
     esac
 
-    local codename="${VERSION_CODENAME:-}"
-    if [[ -z "$codename" ]]; then
-        codename="$(awk -F= '/^VERSION_CODENAME=/{print $2}' /etc/os-release 2>/dev/null || true)"
-    fi
-    # Pop!_OS 24.04 reports noble; the Ubuntu codename is what Docker's repo uses.
-    [[ -n "$codename" ]] || fail_loud "Cannot determine OS codename for Docker's apt repo"
+    # The Ubuntu base codename, not the host's own: Mint reports "wilma", and
+    # Docker's Ubuntu repo only serves the Ubuntu releases (M7).
+    local codename
+    codename="$(awb_ubuntu_codename)"
+    [[ -n "$codename" ]] || fail_loud "Cannot determine the Ubuntu base codename for Docker's apt repo"
 
     if ! dpkg -s docker-ce &>/dev/null; then
         sudo install -m 0755 -d /etc/apt/keyrings

@@ -176,3 +176,38 @@ json_kv() {
     value="$(printf '%s' "$value" | tr -d '\000-\010\013\014\016-\037')"
     printf '  "%s": "%s"' "$key" "$value"
 }
+
+# onnxruntime_package_for <platform_target> — the ONNX Runtime wheel for a
+# platform. One source for runtimes/onnxruntime and for doctor.sh, so the check
+# cannot drift from what was installed (M6).
+onnxruntime_package_for() {
+    case "$1" in
+        nvidia) echo "onnxruntime-gpu" ;;
+        intel)  echo "onnxruntime-openvino" ;;
+        *)      echo "onnxruntime" ;;
+    esac
+}
+
+# awb_ubuntu_codename — the Ubuntu release codename this host is based on.
+# Derivatives (Linux Mint, Pop!_OS) report their own VERSION_CODENAME, which
+# the Ubuntu-hosted repositories do not serve. UBUNTU_CODENAME names the base.
+# Plain Ubuntu has no such field, so it falls back to VERSION_CODENAME (M7).
+awb_ubuntu_codename() {
+    local osrel="${AWB_OS_RELEASE:-/etc/os-release}" codename=""
+    codename="$(awk -F= '/^UBUNTU_CODENAME=/ {gsub(/"/,"",$2); print $2; exit}' "$osrel" 2>/dev/null || true)"
+    if [[ -z "$codename" ]]; then
+        codename="$(awk -F= '/^VERSION_CODENAME=/ {gsub(/"/,"",$2); print $2; exit}' "$osrel" 2>/dev/null || true)"
+    fi
+    printf '%s' "$codename"
+}
+
+# awb_ubuntu_tag — the "ubuntuYYMM" tag that NVIDIA and Intel name their assets
+# by. Keyed on the codename, not VERSION_ID: a derivative's VERSION_ID (Mint
+# 22.1) is not an Ubuntu version. An unknown codename keeps the VERSION_ID rule.
+awb_ubuntu_tag() {
+    case "$(awb_ubuntu_codename)" in
+        noble) echo "ubuntu2404" ;;
+        jammy) echo "ubuntu2204" ;;
+        *)     echo "ubuntu${OS_VERSION:-}" | tr -d '.' ;;
+    esac
+}

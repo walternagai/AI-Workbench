@@ -13,7 +13,7 @@ install_intel_opencl() {
         ocl-icd-libopencl1 \
         || fail_loud "Failed to install Intel OpenCL packages"
 
-    if has_cmd clinfo && clinfo -l 2>/dev/null | grep -qi intel; then
+    if has_cmd clinfo && clinfo -l 2>/dev/null | grep -i intel >/dev/null; then
         log_ok "Intel OpenCL runtime functional."
     else
         log_warn "OpenCL packages installed but no Intel platform detected by clinfo. This is non-fatal; Vulkan remains the primary acceleration path."

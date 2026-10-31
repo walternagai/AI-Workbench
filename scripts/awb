@@ -98,9 +98,13 @@ case "$cmd" in
     runtime)
         _need_detection
         sub="${1:-}"; rt="${2:-}"; shift 2 || true
-        # Security: validate runtime name to prevent path traversal
+        # Security: validate runtime name to prevent path traversal. The first
+        # character must be alphanumeric, which rejects '.' and '..'. Without
+        # that, '..' resolves runtimes/../install.sh to the repo's own installer,
+        # and sourcing it runs the whole installation (M3).
         [[ -n "$rt" ]] || { log_error "Usage: awb runtime {install|update|remove} <name>"; exit 1; }
-        [[ "$rt" =~ ^[a-zA-Z0-9._-]+$ ]] || { log_error "Invalid runtime name: ${rt} (use only letters, digits, dots, hyphens, underscores)"; exit 1; }
+        [[ "$rt" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ && "$rt" != *..* ]] || { log_error "Invalid runtime name: ${rt} (start with a letter or digit; use only letters, digits, dots, hyphens, underscores)"; exit 1; }
+        [[ -f "${AWB_ROOT}/runtimes/${rt}/install.sh" ]] || { log_error "Unknown runtime: ${rt} (no runtimes/${rt}/install.sh)"; exit 1; }
         safe_source "${AWB_ROOT}/runtimes/${rt}/install.sh"
         case "$sub" in
             install|update|remove) ;;

@@ -68,7 +68,8 @@ install_intel_npu() {
 
     # Upstream names release assets like "...-ubuntu2404.tar.gz" — one
     # tarball per Ubuntu release, not a version-agnostic apt package.
-    local asset_tag="ubuntu${OS_VERSION//./}"
+    local asset_tag
+    asset_tag="$(awb_ubuntu_tag)"
     local asset_url=""
     asset_url="$(curl -fsSL "https://api.github.com/repos/${AWB_NPU_GH_REPO}/releases/latest" \
         | grep -o "\"browser_download_url\": *\"[^\"]*${asset_tag}[^\"]*\.tar\.gz\"" \

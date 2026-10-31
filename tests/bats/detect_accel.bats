@@ -8,6 +8,12 @@
 # HAS_*="true") whenever a vendor ICD is on disk, and "none" only when neither
 # a tool result nor an ICD exists. Run with:
 #   bats tests/bats/detect_accel.bats
+#
+# Hermeticity (M1): the real vulkaninfo/clinfo may exist on the host and answer
+# with a device. So the stubs are never removed. A stub that prints nothing
+# stands for "tool present, no result", and it shadows the real binary because
+# STUB_BIN is first on PATH. Removing the stub would let the host's real tool
+# decide the scenario, which is the failure this file used to have.
 
 setup() {
     export AWB_ROOT
@@ -54,8 +60,9 @@ teardown() {
 }
 
 @test "detect_vulkan: icd-only when vulkaninfo is missing but an NVIDIA ICD exists" {
+    # Empty output: the tool stub is present but has no answer, so the ICD
+    # fallback decides.
     : >"$STUB_TOOL_OUT"
-    rm -f "${STUB_BIN}/vulkaninfo"
     cat >"$VULKAN_ICD_DIRS/nvidia_icd.json" <<'EOF'
 {"ICD": {"library_path": "libGLX_nvidia.so.0", "api_version": "1.4.312"}}
 EOF
@@ -71,7 +78,6 @@ EOF
 
 @test "detect_vulkan: none when neither tool nor ICD exists" {
     : >"$STUB_TOOL_OUT"
-    rm -f "${STUB_BIN}/vulkaninfo"
 
     detect_vulkan
 
@@ -94,7 +100,6 @@ EOF
 
 @test "detect_opencl: icd-only when clinfo is missing but an NVIDIA ICD exists" {
     : >"$STUB_TOOL_OUT"
-    rm -f "${STUB_BIN}/clinfo"
     cat >"$OPENCL_ICD_DIR/nvidia.icd" <<'EOF'
 libnvidia-opencl.so.1
 EOF
@@ -108,7 +113,6 @@ EOF
 
 @test "detect_opencl: none when neither tool nor ICD exists" {
     : >"$STUB_TOOL_OUT"
-    rm -f "${STUB_BIN}/clinfo"
 
     detect_opencl
 
