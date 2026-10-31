@@ -1,0 +1,60 @@
+schema_version: 1
+task: fix-M7-mint-ubuntu-base
+status: approved
+domain: coding
+done: Testes verdes. Validação em Linux Mint real continua pendente.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: M7
+  severidade: media
+  ordem: 9
+titulo: Usar a base Ubuntu real em Linux Mint (codinome e tag de asset)
+fit:
+  trivial: false
+  route: code-loop
+  reason: Correção de achado da revisão. Mudança cirúrgica com teste que falha antes e passa depois.
+  answered: false
+  skipped: true
+think:
+  problem: 'Usar a base Ubuntu real em Linux Mint (codinome e tag de asset). Origem: achado M7 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Confirmar os campos do os-release de Mint em uma máquina real antes de aplicar. Sem essa confirmação, a correção é suposição.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: false
+plano:
+  arquivos:
+  - install.sh:167-172 (VERSION_CODENAME no repo do Docker)
+  - platforms/intel/npu.sh:71 (tag por VERSION_ID)
+  - platforms/nvidia/repo.sh:23 (tag por VERSION_ID)
+  - lib/utils.sh (novo helper awb_ubuntu_base)
+  passos:
+  - 'Criar awb_ubuntu_base: usa UBUNTU_CODENAME quando existir; mapeia codinome para a tag ubuntuXXYY (noble -> 2404, jammy -> 2204).'
+  - Os três pontos passam a usar o helper.
+  - Reusar AWB_OS_RELEASE para apontar fixtures de teste.
+verify:
+  teste: 'tests/bats/ubuntu_base.bats (novo) com fixtures: Mint (VERSION_CODENAME=wilma, UBUNTU_CODENAME=noble, VERSION_ID=22.1) e Pop!_OS (noble) devem resolver para noble e ubuntu2404.'
+  criterio_de_sucesso: Testes verdes. Validação em Linux Mint real continua pendente.
+  comandos:
+  - make test
+notas: Confirmar os campos do os-release de Mint em uma máquina real antes de aplicar. Sem essa confirmação, a correção é suposição.
+pending:
+  action: Validar em Linux Mint real. Os campos do os-release do Mint (UBUNTU_CODENAME) estão na fixture e não foram confirmados numa máquina Mint.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false
+implementacao:
+  feito:
+  - 'lib/utils.sh: awb_ubuntu_codename (UBUNTU_CODENAME, fallback VERSION_CODENAME) e awb_ubuntu_tag (por codinome, fallback VERSION_ID)'
+  - install.sh, platforms/intel/npu.sh e platforms/nvidia/repo.sh usam os helpers
+  vermelho_antes: 'Código antigo: 7 de 7 falham.'
+  verificado: ubuntu_base.bats 7/7 verde, com fixtures de Mint, Pop!_OS e Ubuntu.
+  pendente: Validar em Linux Mint real. Os campos do os-release do Mint (UBUNTU_CODENAME) estão na fixture e não foram confirmados numa máquina Mint.

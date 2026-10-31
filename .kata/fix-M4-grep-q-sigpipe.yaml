@@ -1,0 +1,59 @@
+schema_version: 1
+task: fix-M4-grep-q-sigpipe
+status: approved
+domain: coding
+done: O teste falha no código atual e passa depois da correção (vermelho-verde).
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: M4
+  severidade: media
+  ordem: 6
+titulo: Remover falso negativo de grep -q sob pipefail
+fit:
+  trivial: false
+  route: code-loop
+  reason: Correção de achado da revisão. Mudança cirúrgica com teste que falha antes e passa depois.
+  answered: false
+  skipped: true
+think:
+  problem: 'Remover falso negativo de grep -q sob pipefail. Origem: achado M4 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Nenhum.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: false
+plano:
+  arquivos:
+  - platforms/nvidia/cudnn.sh:17,21,38,42
+  - platforms/intel/oneapi.sh:15
+  - platforms/intel/opencl.sh:16 (baixo risco)
+  - platforms/nvidia/opencl.sh:13 (baixo risco)
+  passos:
+  - Trocar grep -q por grep >/dev/null nesses pipelines (lê a entrada inteira, sem SIGPIPE).
+  - 'Manter a semântica: o pipeline continua verdadeiro só com match.'
+verify:
+  teste: 'tests/bats/pipefail_guards.bats (novo): dpkg stub que imprime ~500 KB com ''ii  nvidia-cudnn'' no meio; install_nvidia_cudnn deve logar ''already installed'' e não chamar apt-get. Deve falhar
+    antes da correção.'
+  criterio_de_sucesso: O teste falha no código atual e passa depois da correção (vermelho-verde).
+  comandos:
+  - make test
+notas: ''
+pending:
+  action: Nenhuma pendência desta task.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false
+implementacao:
+  feito:
+  - grep -q trocado por grep >/dev/null em cudnn.sh (4 pontos), oneapi.sh, intel/opencl.sh e nvidia/opencl.sh
+  - 'tests/bats/pipefail_guards.bats: 2 testes com listagens grandes'
+  vermelho_antes: 'Código antigo: 2 de 2 falham. A primeira versão do stub não reproduzia o defeito (o shell engolia o SIGPIPE); corrigida com exec awk.'
+  verificado: pipefail_guards.bats 2/2 verde.

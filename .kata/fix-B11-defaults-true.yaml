@@ -1,0 +1,49 @@
+schema_version: 1
+task: fix-B11-defaults-true
+status: draft
+domain: coding
+done: bats verde.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: B11
+  severidade: nit
+  ordem: 20
+titulo: Alinhar os defaults de OpenVINO e ONNX com o config.env
+fit:
+  trivial: false
+  route: code-loop
+  reason: Correção de achado da revisão. Mudança cirúrgica com teste que falha antes e passa depois.
+  answered: false
+  skipped: true
+think:
+  problem: 'Alinhar os defaults de OpenVINO e ONNX com o config.env. Origem: achado B11 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Nenhum.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: false
+plano:
+  arquivos:
+  - install.sh:282-283
+  - update.sh:75-78
+  passos:
+  - Trocar ${INSTALL_OPENVINO:-true} e ${INSTALL_ONNXRUNTIME:-true} por :-false.
+verify:
+  teste: 'tests/bats/install_sections.bats (estender): grep exige :-false nesses defaults.'
+  criterio_de_sucesso: bats verde.
+  comandos:
+  - make test
+notas: ''
+pending:
+  action: Executar a task após aprovação do usuário.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false

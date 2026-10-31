@@ -1,0 +1,55 @@
+schema_version: 1
+task: fix-M1-bats-hermetic
+status: approved
+domain: coding
+done: make test-bats sai com 0 nesta máquina, que tem vulkaninfo e clinfo.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: M1
+  severidade: media
+  ordem: 3
+titulo: Tornar detect_accel.bats hermético (4 falhas)
+fit:
+  trivial: false
+  route: code-loop
+  reason: Correção de achado da revisão. Mudança cirúrgica com teste que falha antes e passa depois.
+  answered: false
+  skipped: true
+think:
+  problem: 'Tornar detect_accel.bats hermético (4 falhas). Origem: achado M1 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Nenhum.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: false
+plano:
+  arquivos:
+  - tests/bats/detect_accel.bats:58,74,97,111 (rm -f dos stubs)
+  passos:
+  - Remover as 4 linhas rm -f. O stub que imprime saída vazia já simula ferramenta sem resultado.
+  - Comentar no setup que o stub, e não a ausência do binário, controla o cenário.
+  - Varrer tests/bats/ por outros testes que dependem de comandos do host.
+verify:
+  teste: bats tests/bats/detect_accel.bats (6/6) e make test-bats.
+  criterio_de_sucesso: make test-bats sai com 0 nesta máquina, que tem vulkaninfo e clinfo.
+  comandos:
+  - make test
+notas: ''
+pending:
+  action: Nenhuma pendência desta task.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false
+implementacao:
+  feito:
+  - 'tests/bats/detect_accel.bats: removidas as 4 linhas rm -f dos stubs; comentário explica que o stub vazio é que representa ''sem resultado'''
+  vermelho_antes: 'Original do HEAD: 4 falhas (ids 11, 12, 14, 15), já reproduzidas antes da correção.'
+  verificado: detect_accel.bats 6/6 verde nesta máquina, que tem vulkaninfo e clinfo reais.

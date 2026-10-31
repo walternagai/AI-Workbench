@@ -1,0 +1,308 @@
+schema_version: 1
+task: revisao-completa-repo
+status: approved
+domain: coding
+done: "Revisão completa do repositório (shell, benchmarks Python, testes bats/pytest, compose, Dockerfile, docs) concluída, com achados priorizados por severidade (arquivo:linha, evidência, correção sugerida). Gates do projeto executados e resultados registrados, inclusive falhas. Nenhum código-fonte alterado."
+kata_version: "0.10.0"
+base_commit: "7b7bc8599bc7d85730aec92fc678e7567d6f5d59"
+fit:
+  trivial: false
+  route: question
+  reason: "Pedido de detecção de melhorias, correções e erros. É diagnóstico: reportar achados sem alterar código. Mesma rota da rodada-2. Correções ficam para tasks próprias, com autorização."
+  answered: false
+  skipped: true
+think:
+  problem: "Detectar, em todo o repositório, erros, bugs, riscos de segurança, falhas de reprodutibilidade e melhorias, sem alterar o código."
+  assumptions:
+    - "Escopo: todos os arquivos rastreados e o arquivo novo benchmarks/llm/sweep_csv.sh (não rastreado, surgido durante a sessão)."
+    - "Detecção apenas: nenhum arquivo de código é editado. Correções dependem de autorização."
+    - "Gates do próprio projeto (make test) são a referência objetiva para testes."
+    - "Fase preenchida pelo agente sem resposta do usuário (sessão não interativa); por isso skipped true."
+  alternatives:
+    - "Revisão automatizada só com gates: descartada, não detecta bugs de lógica."
+    - "Revisão manual de leitura + reprodução de cada suspeita com um probe isolado (escolhida)."
+    - "Corrigir achados triviais durante a revisão: descartada, o pedido é detectar."
+  unknowns: |
+    RESOLVIDO: a suíte bats tem 4 falhas nesta máquina (investigado: testes não herméticos).
+    RESOLVIDO: o doctor sobrescreve -e via detect.sh (reproduzido).
+    NÃO VERIFICADO: instalação completa (install.sh) em máquina limpa. Não executada, porque alteraria o sistema. A conclusão vem da leitura do código e da semântica do compose.
+    NÃO VERIFICADO: comportamento em Linux Mint real (campos do os-release citados de memória).
+simplify:
+  minimum_code: true
+  no_single_use_abstractions: true
+  no_speculative_config: true
+  notes: "Nenhum código novo. Só o YAML de controle da task."
+  answered: false
+  skipped: false
+intent:
+  code_does: "O repositório é um framework bash para preparar estações Linux de IA local, com um pequeno módulo Python de benchmarks."
+  check_expects: "AGENTS.md e CLAUDE.md: shellcheck --severity=warning, bats (hermético), pytest com cobertura >= 80%, config.env com placeholders e segredos fora do repositório."
+  spec_says: "README.md, CLAUDE.md, AGENTS.md e docs/PRINCIPLES.md (fail-loud, selective re-execution, observabilidade, modularidade)."
+  all_agree: false
+  conflict_resolution: "Ordem usuário > spec > teste > código. Conflito 1: config.env:67-70 diz que o ComfyUI fica em localhost, mas services/comfyui/docker-compose.yml publica 0.0.0.0 com auth desligada. A spec interna (CLAUDE.md) descreve o bind e a auth desligada como decisões deliberadas, mas não o localhost que o config.env promete. Resolvido como achado de alta severidade, reportado sem edição. Conflito 2: testes bats assumem que vulkaninfo/clinfo estão ausentes, mas o host os tem. O teste é que está errado, não o código."
+  answered: false
+  skipped: false
+surgical:
+  files: []
+  removed_imports_clean: true
+  answered: false
+  skipped: false
+  notes: "Nenhum arquivo de código foi alterado. Arquivos gerados pelos gates (.coverage, .pytest_cache, __pycache__) são ignorados pelo .gitignore."
+verify:
+  shellcheck_clean: true
+  bats_pass: false
+  pytest_pass: true
+  coverage_pct: 98.04
+  coverage_pass: true
+  make_test_green: false
+  ruff_clean: null
+  typecheck_clean: null
+  success_criteria_met: true
+  attempts: 1
+  hand_back: false
+  gate_used: 80
+  commands:
+    shellcheck: "make test-shell (shellcheck -x --severity=warning sobre todos os .sh e scripts/awb) -> passou; também sobre benchmarks/llm/sweep_csv.sh -> passou"
+    bats: "make test-bats (bats tests/bats/) -> 147 ok, 4 falhas: detect_accel.bats 11, 12, 14, 15"
+    pytest: "pytest --cov -> 26 passed, cobertura 98.04% (gate 80%)"
+  ran_at: "2026-10-31"
+preflight:
+  skills_missing: []
+  notes: "kata 0.10.0 instalado (python3 -m kata --doctor OK). O CLI não foi usado para --verify-task porque o VERIFY padrão cobre só Python e deixaria o bats de fora. Os gates foram rodados diretamente, pelo make."
+artifact:
+  intent_owed: true
+  intent_present: true
+  auth_owed: false
+  auth_present: true
+  pending_owed: true
+  pending_present: true
+  twins_owed: true
+  twins_present: true
+auth:
+  action_taken: false
+  authorized: false
+  action: ""
+  quote: ""
+pending:
+  action: "Aplicar as correções de forma cirúrgica, uma task por grupo, com autorização do usuário. Prioridade: A1 e A2, depois M1 a M5. Decidir antes: o bind do ComfyUI (A1) e os defaults de INSTALL_CHROMADB, INSTALL_COMFYUI e INSTALL_POSTGRES (A2). Rotacionar os segredos que estiveram no histórico do git (commit ec89832, 2 valores não-placeholder)."
+  documented: true
+twins:
+  pattern: "grep -q (ou grep -qi) dentro de pipeline sob pipefail (falso negativo por SIGPIPE)"
+  result: "Risco real em platforms/nvidia/cudnn.sh (3 ocorrências) e platforms/intel/oneapi.sh (1). Risco baixo em clinfo (platforms/intel/opencl.sh, platforms/nvidia/opencl.sh) por saída pequena. Também no padrão 'sensors|grep' e 'nvidia-smi|sed' em monitoring/ (M5)."
+  searched: true
+  defect_fixed: false
+  matches_count: 4
+  files_count: 2
+  fix_applied: false
+findings:
+  - id: A1
+    severidade: alta
+    tipo: seguranca
+    arquivos: "services/comfyui/docker-compose.yml:20,24,27 ; config.env:67-70"
+    achado: "ComfyUI publicado em 0.0.0.0 (todas as interfaces, inclusive LAN), com --listen 0.0.0.0 e WEB_ENABLE_AUTH=false. O config.env diz que a porta fica em localhost. Docker publica portas direto no iptables, então o UFW não bloqueia."
+    evidencia: "Leitura do compose e do config.env. Não testado na rede. A auth é delegada ao auth_request do nginx do hub, que não protege acesso direto à porta."
+    correcao: "Publicar em 172.17.0.1 (como o qdrant) ou em 127.0.0.1 com host-gateway, e corrigir o comentário do config.env. Se a auth continuar desligada, deixar isso explícito no README como exposição aceita."
+    status: aberto (decisão de design do autor; registrado na rodada anterior)
+  - id: A2
+    severidade: alta
+    tipo: reprodutibilidade
+    arquivos: "config.env:41-43,54,63 ; services/install.sh:23-26,35-44 ; services/chromadb/docker-compose.yml:23-24 ; services/comfyui/docker-compose.yml:16,22,38 ; README.md:35"
+    achado: "A instalação padrão não conclui em outra máquina. INSTALL_CHROMADB, INSTALL_POSTGRES e INSTALL_COMFYUI vêm true. ChromaDB exige a rede externa seiryu_seiryu-network, que só existe no hub do autor. ComfyUI usa o UUID fixo de uma RTX 5060 Ti e a imagem local seiryu/comfyui:0.43.2-cu128-restore, que não vem de nenhum registry. OpenWebUI e Postgres abortam com o placeholder change-me sem config.local.env. O README manda copiar para config.env.local, mas o loader lê config.local.env. Resultado: a instalação falha com FATAL em section_services, depois de baixar os modelos."
+    evidencia: "Leitura do config.env, do compose e do services/install.sh. docker network ls nesta máquina não lista seiryu_seiryu-network. Não executei install.sh, porque ele alteraria o sistema."
+    correcao: "Trocar o default de INSTALL_CHROMADB e INSTALL_COMFYUI para false, ou tornar a rede externa e o UUID configuráveis por variável. Corrigir o cp do README para config.local.env.example. Fazer o install avisar antes de começar se faltarem segredos."
+    status: aberto
+  - id: M1
+    severidade: media
+    tipo: teste-nao-hermetico
+    arquivos: "tests/bats/detect_accel.bats:58,74,97,111"
+    achado: "4 falhas em make test-bats. O teste remove o stub vulkaninfo/clinfo com rm -f, mas o binário real está em /usr/bin e responde no host (Intel Arc MTL). O estado vira functional, não icd-only/none. O CLAUDE.md proíbe testes que dependem do host."
+    evidencia: "Reproduzido. Cópia do teste sem as 4 linhas rm -f: 6/6 ok, com o stub vazio mantido."
+    correcao: "Remover as 4 linhas rm -f. O stub que imprime saída vazia já simula 'ferramenta sem resultado'."
+    status: aberto
+  - id: M2
+    severidade: media
+    tipo: bug-shell
+    arquivos: "doctor.sh:8,28 ; detect.sh:9"
+    achado: "doctor.sh é deliberadamente sem -e, mas faz source de detect.sh, que tem set -euo pipefail no topo. O shell do doctor passa a ter -e. Qualquer atribuição com comando que falha aborta o doctor sem gerar os reports."
+    evidencia: "Reproduzido: após source detect.sh, $- passa de huBc para ehuBc. out=$(false | head -1) aborta com exit 1 e não imprime o fim."
+    correcao: "Em detect.sh, aplicar set -euo pipefail só quando executado diretamente. Ou o doctor.sh reaplica set -uo pipefail depois do source."
+    status: aberto
+  - id: M3
+    severidade: media
+    tipo: validacao-quebrada
+    arquivos: "scripts/awb:102-103 ; install.sh:382"
+    achado: "A validação de awb runtime aceita '.' e '..' (regex ^[a-zA-Z0-9._-]+$). Com '..', o caminho vira runtimes/../install.sh, que é o install.sh da raiz. O safe_source o carrega, e o main() no fim do arquivo roda o instalador inteiro. A validação existe justamente para impedir path traversal."
+    evidencia: "Resolução do caminho confirmada: runtimes/../install.sh existe. A execução completa não foi feita, para não rodar o instalador."
+    correcao: "Rejeitar '.' e '..' (exigir primeiro caractere alfanumérico) e checar [[ -d runtimes/$rt ]] antes do source."
+    status: aberto
+  - id: M4
+    severidade: media
+    tipo: falso-negativo-sigpipe
+    arquivos: "platforms/nvidia/cudnn.sh:17,21,38 ; platforms/intel/oneapi.sh:15 ; baixo risco: platforms/intel/opencl.sh:16 ; platforms/nvidia/opencl.sh:13"
+    achado: "grep -q dentro de pipeline com pipefail: o grep sai no primeiro match, o produtor recebe SIGPIPE e o pipeline dá falso. Na guarda de idempotência do cuDNN, isso faz o script pular o skip e tentar instalar o pacote conflitante que o próprio comentário (cudnn.sh:32-35) diz quebrar o apt."
+    evidencia: "Reproduzido: seq 1 2000000 | grep -q '^1$' com pipefail dá NOMATCH em 5 de 5 execuções, mesmo com o padrão presente."
+    correcao: "Trocar grep -q por grep >/dev/null (lê toda a entrada, sem SIGPIPE), ou usar dpkg -s para o pacote."
+    status: aberto
+  - id: M5
+    severidade: media
+    tipo: bug-shell
+    arquivos: "monitoring/temperature.sh:10 ; monitoring/gpu.sh:11-12 ; scripts/awb:20,72-78"
+    achado: "awb monitor aborta silenciosamente. Com pipefail + set -e, sensors | grep -E '°C' sem nenhuma linha em °C faz o script sair com 1 e sem mensagem. O mesmo vale para nvidia-smi | sed quando o driver não responde."
+    evidencia: "Reproduzido: sensors sem linha em °C dá exit=1 e nenhum texto depois do cabeçalho Temperature."
+    correcao: "Tratar o pipeline: '|| true' ou um if, com a mensagem de fallback que já existe para ausência de sensors."
+    status: aberto
+  - id: M6
+    severidade: media
+    tipo: falso-aviso-doctor
+    arquivos: "doctor.sh:263-266 ; runtimes/onnxruntime/install.sh:7-13"
+    achado: "O doctor exige o pacote onnxruntime-openvino sempre. O runtime instala onnxruntime-gpu em NVIDIA e onnxruntime em CPU/AMD. Com INSTALL_ONNXRUNTIME=true, esses hosts recebem aviso falso de 'não instalado'."
+    evidencia: "Leitura direta dos dois arquivos."
+    correcao: "Usar uma fonte única para o nome do pacote (mover _onnxruntime_package para lib/ e chamar nos dois lugares)."
+    status: aberto
+  - id: M7
+    severidade: media
+    tipo: compatibilidade
+    arquivos: "install.sh:167-170,184 ; platforms/intel/npu.sh:71 ; platforms/nvidia/repo.sh:23"
+    achado: "Linux Mint é declarado suportado, mas: (a) o repositório do Docker usa VERSION_CODENAME, que no Mint é o codinome do Mint e não do Ubuntu. O apt então falha e cai no fail_loud da linha 184. (b) As tags de asset usam VERSION_ID (ubuntu${OS_VERSION//./}), que no Mint gera 'ubuntu22' em vez de 'ubuntu2404'."
+    evidencia: "Leitura do código. Não testado em Mint. Os nomes dos campos do os-release do Mint (UBUNTU_CODENAME) são de memória e precisam ser confirmados."
+    correcao: "Usar UBUNTU_CODENAME quando existir e mapear a versão Ubuntu base para as tags. Testar em Mint real."
+    status: aberto
+  - id: B1
+    severidade: baixa
+    tipo: codigo-morto
+    arquivos: "runtimes/llama.cpp/install.sh:28"
+    achado: "require_cmd ninja ... || true. require_cmd chama fail_loud, que faz exit. O '|| true' nunca é alcançado, e o comentário 'opcional' é falso. Na prática, install.sh:127-129 já instala ninja-build."
+    evidencia: "Reproduzido: require_cmd __inexistente__ || true encerra o script com exit 1."
+    correcao: "Remover o '|| true' e ajustar o comentário, ou usar has_cmd para o caso opcional."
+    status: aberto
+  - id: B2
+    severidade: baixa
+    tipo: bug-python
+    arquivos: "benchmarks/embeddings/bench_embeddings.py:33,56"
+    achado: "--iterations 0 gera ZeroDivisionError em format_report, porque a média de uma lista vazia é 0.0."
+    evidencia: "Reproduzido com stub de sentence_transformers: ZeroDivisionError float division by zero."
+    correcao: "Validar iterations >= 1 em parse_args (argparse com erro claro)."
+    status: aberto
+  - id: B3
+    severidade: baixa
+    tipo: observabilidade
+    arquivos: "benchmarks/whisper/run.sh:23-32"
+    achado: "A saída da transcrição vai para um arquivo em /tmp e é apagada. O usuário nunca vê o texto transcrito. Em falha, o arquivo temporário sobra, porque fail_loud sai antes do rm."
+    evidencia: "Leitura do código."
+    correcao: "Gravar a saída em reports/ e usar trap EXIT para limpar o temporário."
+    status: aberto
+  - id: B4
+    severidade: baixa
+    tipo: sucesso-falso
+    arquivos: "platforms/intel/npu.sh:117-120"
+    achado: "Se o dpkg falha, vira log_warn e depois log_ok 'instalado (best-effort)'. A mensagem de sucesso é dada mesmo com falha."
+    evidencia: "Leitura do código."
+    correcao: "Só registrar sucesso quando o dpkg retornar 0; caso contrário, mensagem de aviso específica."
+    status: aberto
+  - id: B5
+    severidade: baixa
+    tipo: doc-divergente
+    arquivos: "lib/downloader.sh:2-3,40-43"
+    achado: "O cabeçalho diz 'with resume support', e o curl usa --continue-at -, mas em falha o parcial é apagado com rm -f. A retomada nunca acontece."
+    evidencia: "Leitura do código."
+    correcao: "Manter o parcial em falha de rede e avisar, ou corrigir a documentação."
+    status: aberto
+  - id: B6
+    severidade: baixa
+    tipo: contrato-divergente
+    arquivos: "lib/validation.sh:25,31 ; README.md:24"
+    achado: "validate_os aceita qualquer derivada Debian (ID_LIKE contém debian). A mensagem diz 'Supported: Ubuntu, Pop!_OS, Linux Mint', e o comentário diz que outras distros são recusadas. O README diz 'ou Debian-based'."
+    evidencia: "Leitura do código."
+    correcao: "Decidir a política e alinhar código, mensagem e README."
+    status: aberto
+  - id: B7
+    severidade: baixa
+    tipo: passo-falso
+    arquivos: "platforms/cpu/onednn.sh:7-10"
+    achado: "O passo 'Verifying oneDNN availability' não verifica nada e registra log_ok. Isso contraria o princípio de observabilidade (docs/PRINCIPLES.md, item 6)."
+    evidencia: "Leitura do código."
+    correcao: "Remover o passo ou verificar de fato (import em um venv)."
+    status: aberto
+  - id: B8
+    severidade: baixa
+    tipo: trade-off-seguranca
+    arquivos: "runtimes/ollama/install.sh:17-38,49"
+    achado: "O instalador do Ollama é baixado e executado com sh. A única checagem é o shebang. Não há verificação de integridade. O comentário 'avoids curl|sh' descreve a mitigação, mas o risco permanece."
+    evidencia: "Leitura do código."
+    correcao: "Registrar como trade-off aceito no README, ou verificar um checksum publicado, se existir."
+    status: aberto
+  - id: B9
+    severidade: baixa
+    tipo: portabilidade
+    arquivos: "runtimes/llama.cpp/install.sh:94"
+    achado: "O unit gerado tem EnvironmentFile=-%h/dev/ninja-apps/seiryu/data/gpu.env, um caminho pessoal do autor. Com o prefixo '-' é inofensivo, mas vaza o layout local para outras instalações."
+    evidencia: "Leitura do código."
+    correcao: "Mover o caminho para uma variável em config.env, com default vazio."
+    status: aberto
+  - id: B10
+    severidade: baixa
+    tipo: doc-divergente
+    arquivos: "README.md:35,51,53,134 ; README.md:Arquitetura ; CLAUDE.md:28,164-168 ; AGENTS.md:21 ; config.env:45-46"
+    achado: "(a) README:35 usa cp config.env config.env.local, nome que o loader não lê (ver A2). (b) Exemplos com gemma3-e2b e gemma-3n-E2B-it-Q8_0.gguf, mas DEFAULT_MODEL é gemma4-e2b (config.env:77). (c) A árvore de arquitetura do README omite comfyui. (d) CLAUDE.md:164-168 diz que config.env ainda tem segredos de alta entropia. Hoje tem change-me, mas o histórico tem 2 valores não-placeholder: falta atualizar o texto para 'histórico' e confirmar a rotação. (e) config.env:45-46 diz que Qdrant fica só em localhost, mas o compose usa 172.17.0.1."
+    evidencia: "grep nos arquivos citados. A contagem de valores no histórico foi feita sem imprimi-los."
+    correcao: "Atualizar os textos listados."
+    status: aberto
+  - id: B11
+    severidade: nit
+    tipo: default-divergente
+    arquivos: "install.sh:282-283 ; update.sh:75-78"
+    achado: "Os defaults ${INSTALL_OPENVINO:-true} e ${INSTALL_ONNXRUNTIME:-true} divergem do config.env (false). Hoje é inócuo, porque config.env é obrigatório. Se a flag sumir, o runtime é instalado."
+    evidencia: "Leitura do código."
+    correcao: "Usar false nos defaults, igual ao config.env."
+    status: aberto
+  - id: B12
+    severidade: nit
+    tipo: trap-sobrescrito
+    arquivos: "lib/utils.sh:88-91 ; install.sh:358"
+    achado: "sudo_keepalive redefine o trap EXIT/INT/TERM e sobrescreve o _cleanup de install.sh. O efeito hoje é nulo, porque os dois matam o mesmo PID, mas o _cleanup fica morto."
+    evidencia: "Leitura do código."
+    correcao: "Fazer sudo_keepalive encadear o trap anterior, ou chamar _cleanup nele."
+    status: aberto
+  - id: B13
+    severidade: nit
+    tipo: falha-silenciosa
+    arquivos: "platforms/intel/gpu.sh:16-17 ; platforms/amd/rocm.sh:37"
+    achado: "usermod -aG ... && log_warn e 'id ... | grep || usermod' não checam o resultado do usermod. Uma falha passa sem aviso, o que vai contra o princípio fail-loud."
+    evidencia: "Leitura do código."
+    correcao: "Tratar a falha do usermod com fail_loud ou log_warn explícito."
+    status: aberto
+  - id: B14
+    severidade: baixa
+    tipo: doc-divergente
+    arquivos: "benchmarks/llm/sweep_csv.sh:2-11,26,28,35 (arquivo novo, não rastreado)"
+    achado: "O uso documenta -ngl, mas o getopts aceita apenas -l. Com -ngl 0,99, o getopts lê -n com argumento 'gl' e o erro sai como 'modelo não encontrado: 0,99'. Além disso, run_at usa o instante do início do sweep para todos os modelos, mas o comentário diz 'o instante da execução'. O script não tem teste."
+    evidencia: "Reproduzido com llama-bench falso em /tmp: -ngl dá erro, -l funciona."
+    correcao: "Aceitar -ngl no getopts (ou trocar o uso por -l) e gravar o run_at por modelo."
+    status: aberto
+report: |
+  ✅ REVISÃO COMPLETA CONCLUÍDA — nenhum código alterado, 2 achados de alta severidade, 7 de média.
+
+  Problema: detectar melhorias, correções e erros do AI-Workbench.
+  Arquivos alterados: apenas .kata/revisao-completa-repo.yaml (controle da task).
+
+  Achados: 2 alta, 7 média, 14 baixa/nit (ver `findings` no YAML).
+    Alta: A1 ComfyUI exposto em 0.0.0.0 com auth desligada (docs dizem localhost);
+          A2 instalação padrão falha fora da máquina do autor (rede externa, UUID de GPU, imagem local, segredos).
+    Média: M1 4 falhas bats por teste não-hermético; M2 doctor herda set -e via detect.sh;
+           M3 awb runtime aceita '..' e carrega install.sh; M4 grep -q + pipefail (falso negativo);
+           M5 awb monitor aborta em silêncio; M6 doctor avisa ONNX errado em NVIDIA/CPU;
+           M7 Linux Mint declarado suportado mas quebra em Docker/NPU/NVIDIA.
+
+  Verificações:
+    ✅ shellcheck --severity=warning limpo (inclui benchmarks/llm/sweep_csv.sh)
+    ❌ bats: 147 ok, 4 falhas (detect_accel.bats 11, 12, 14, 15)
+    ✅ pytest: 26 passaram, cobertura 98.04% (gate 80%)
+    ❌ make test: vermelho pela falha do bats
+
+  Caveats:
+    ⚠️ install.sh não foi executado (alteraria o sistema): A2 vem da leitura do código e da semântica do compose.
+    ⚠️ Mint não testado; campos do os-release citados de memória.
+    ⚠️ Nenhum achado foi corrigido: o pedido foi detectar.
+    ⚠️ benchmarks/llm/sweep_csv.sh apareceu no repositório durante a sessão. Não foi criado por este agente e não está rastreado. Foi revisado somente leitura.
+
+  PENDING: aplicar correções em tasks separadas, com autorização; decidir o bind do ComfyUI e os defaults de A2; rotacionar segredos do histórico.

@@ -1,0 +1,50 @@
+schema_version: 1
+task: fix-B7-onednn-fake-step
+status: draft
+domain: coding
+done: shellcheck e bats verdes.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: B7
+  severidade: baixa
+  ordem: 16
+titulo: Remover o passo de oneDNN que não verifica nada
+fit:
+  trivial: false
+  route: code-loop
+  reason: Correção de achado da revisão. Mudança cirúrgica com teste que falha antes e passa depois.
+  answered: false
+  skipped: true
+think:
+  problem: 'Remover o passo de oneDNN que não verifica nada. Origem: achado B7 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Nenhum.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: false
+plano:
+  arquivos:
+  - platforms/cpu/onednn.sh:7-10
+  - platforms/cpu/install.sh:16
+  passos:
+  - Remover a chamada em install_cpu_platform e o arquivo, por ser de uso único.
+  - Documentar em docs/PLATFORM_INTEL.md que oneDNN vem nas wheels.
+verify:
+  teste: 'Teste de grep: a string ''oneDNN dependency acknowledged'' não existe mais; bats verde.'
+  criterio_de_sucesso: shellcheck e bats verdes.
+  comandos:
+  - make test
+notas: ''
+pending:
+  action: Executar a task após aprovação do usuário.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false

@@ -1,0 +1,49 @@
+schema_version: 1
+task: fix-B1-ninja-dead-code
+status: draft
+domain: coding
+done: make test-shell e bats verdes.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: B1
+  severidade: baixa
+  ordem: 10
+titulo: Remover o '|| true' inalcançável após require_cmd ninja
+fit:
+  trivial: false
+  route: code-loop
+  reason: Correção de achado da revisão. Mudança cirúrgica com teste que falha antes e passa depois.
+  answered: false
+  skipped: true
+think:
+  problem: 'Remover o ''|| true'' inalcançável após require_cmd ninja. Origem: achado B1 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Nenhum.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: false
+plano:
+  arquivos:
+  - runtimes/llama.cpp/install.sh:28
+  passos:
+  - Trocar require_cmd ninja por has_cmd ninja, com log_info se ausente (cmake cai para make).
+  - Ajustar o comentário para refletir o comportamento real.
+verify:
+  teste: 'tests/bats/lint_guards.bats (novo): nenhum ''require_cmd ... || true'' no repositório.'
+  criterio_de_sucesso: make test-shell e bats verdes.
+  comandos:
+  - make test
+notas: ''
+pending:
+  action: Executar a task após aprovação do usuário.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false

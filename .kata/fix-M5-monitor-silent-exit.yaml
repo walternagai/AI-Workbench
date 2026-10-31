@@ -1,0 +1,57 @@
+schema_version: 1
+task: fix-M5-monitor-silent-exit
+status: approved
+domain: coding
+done: awb monitor sai com 0 nos dois stubs.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: M5
+  severidade: media
+  ordem: 7
+titulo: awb monitor sair em silêncio quando sensors ou nvidia-smi não respondem
+fit:
+  trivial: false
+  route: code-loop
+  reason: Correção de achado da revisão. Mudança cirúrgica com teste que falha antes e passa depois.
+  answered: false
+  skipped: true
+think:
+  problem: 'awb monitor sair em silêncio quando sensors ou nvidia-smi não respondem. Origem: achado M5 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Nenhum.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: false
+plano:
+  arquivos:
+  - monitoring/temperature.sh:10
+  - monitoring/gpu.sh:11-12
+  - scripts/awb:72-78
+  passos:
+  - 'Tratar o pipeline de sensors: sem linha em °C, mostrar a mensagem de fallback e retornar 0.'
+  - Tratar o pipeline de nvidia-smi com mensagem de indisponibilidade, sem derrubar o monitor.
+verify:
+  teste: 'tests/bats/monitoring.bats (novo) com stubs: sensors sem °C e nvidia-smi falhando, monitor_temperature e monitor_gpu devem retornar 0 e imprimir a mensagem.'
+  criterio_de_sucesso: awb monitor sai com 0 nos dois stubs.
+  comandos:
+  - make test
+notas: ''
+pending:
+  action: Nenhuma pendência desta task.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false
+implementacao:
+  feito:
+  - 'monitoring/temperature.sh e gpu.sh: pipelines com fallback explícito'
+  - 'tests/bats/monitoring.bats: 3 testes com stubs de sensors e nvidia-smi'
+  vermelho_antes: 'Código antigo: 2 de 3 falham (os dois casos de falha). O caso de sensors com °C é controle e passa nos dois.'
+  verificado: monitoring.bats 3/3 verde.

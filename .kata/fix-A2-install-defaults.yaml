@@ -1,0 +1,113 @@
+schema_version: 1
+task: fix-A2-install-defaults
+status: approved
+domain: coding
+done: Em uma máquina sem seiryu, install_services termina com status 0 e registra os serviços pulados; os três casos de bats passam.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: A2
+  severidade: alta
+  ordem: 2
+titulo: Tornar a instalação padrão concluível fora da máquina do autor
+fit:
+  trivial: false
+  route: plan-first
+  reason: 'Correção de achado da revisão. Exige decisão do usuário antes de qualquer edição: rota plan-first.'
+  answered: false
+  skipped: true
+think:
+  problem: 'Tornar a instalação padrão concluível fora da máquina do autor. Origem: achado A2 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: O default mais seguro muda o comportamento do autor. Decidir com ele antes de aplicar.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: true
+  opcoes:
+  - 'RECOMENDADA: INSTALL_CHROMADB=false e INSTALL_COMFYUI=false no config.env; services/install.sh faz preflight (rede externa existe? imagem existe? segredos reais?) e pula com aviso em vez de abortar
+    a seção.'
+  - Manter os defaults e documentar os pré-requisitos (rede seiryu, imagem seiryu/comfyui, UUID da GPU) no README.
+  - Tornar UUID da GPU e nome da rede externa variáveis, com default vazio, e tornar a rede externa opcional por um arquivo de override.
+  status: decidido
+  analise:
+    evidencias:
+    - 'O hub depende do ChromaDB: nginx.conf:51 (upstream awb-chromadb) e nginx.conf:373 (/shiori/api/chroma/). O compose do hub documenta a conexão manual à seiryu_seiryu-network (docker-compose.yml:547-548).'
+    - 'O hub depende do ComfyUI no host: docker-compose.yml:137 e nginx.conf:456-480. O hub não tem serviço comfyui próprio.'
+    - seiryu_seiryu-network só existe com a stack do hub no ar. Nesta máquina, docker network ls não a lista.
+    - A imagem seiryu/comfyui:0.43.2-cu128-restore não está nesta máquina e não vem de registry (docker image ls).
+    - CLAUDE.md do repositório diz que config.env é público e que overrides e segredos vão em config.local.env.
+    alternativas:
+    - id: O1
+      descricao: Mover os valores pessoais para config.local.env. config.env público passa a ter INSTALL_CHROMADB=false e INSTALL_COMFYUI=false. UUID da GPU e nome da rede viram variáveis (COMFYUI_GPU_UUID,
+        CHROMADB_EXTERNAL_NETWORK) lidas de config.local.env.
+      resolve: Instalação concluível fora da máquina do autor. Segue a regra que o próprio repositório já define.
+      nao_resolve: Sem o hub, ChromaDB e ComfyUI ficam desligados. Isso é o esperado.
+      custo: 'médio: compose parametrizado e services/install.sh'
+      reversivel: true
+      status: recomendada
+    - id: O2
+      descricao: Manter os defaults e documentar os pré-requisitos no README.
+      resolve: Nada no código.
+      nao_resolve: A instalação padrão continua abortando (services/install.sh:35-44 e compose).
+      custo: baixo
+      reversivel: true
+      status: rejeitada
+    - id: O3
+      descricao: Preflight em services/install.sh que pula o serviço com aviso, mantendo os defaults em true.
+      resolve: Aborto em máquina sem o pré-requisito. O autor não muda nada.
+      nao_resolve: A instalação padrão ainda tenta subir serviços. PRINCIPLES.md §1 (fail-loud) aceita exceção, desde que documentada no ponto de chamada.
+      custo: baixo a médio
+      reversivel: true
+      status: rede de segurança, combinável com O1
+    - id: O4
+      descricao: Gerar WEBUI_SECRET_KEY e POSTGRES_PASSWORD no primeiro install, em config.local.env com modo 600.
+      resolve: Aborto por placeholder change-me, sem intervenção manual.
+      nao_resolve: Não resolve rede externa nem UUID da GPU.
+      custo: baixo; o instalador passa a escrever segredos em disco
+      reversivel: true
+      status: opcional, decisão de política
+    recomendacao: O1 mais O3 como rede de segurança. O4 só se você quiser que o instalador gere segredos.
+    pergunta: Confirma O1 (valores pessoais em config.local.env, defaults de serviços em false)? Quer O3 como rede de segurança? Quer O4?
+  resposta: O1 mais O3. Valores pessoais em config.local.env; defaults de serviços em false; preflight que pula com aviso para dependência externa ausente. O4 (gerar segredos) não adotado.
+plano:
+  arquivos:
+  - config.env:41-43 (INSTALL_CHROMADB, INSTALL_POSTGRES, INSTALL_COMFYUI)
+  - config.env:54,63 (placeholders change-me)
+  - services/install.sh:23-26,35-44 (aborto por segredo placeholder)
+  - services/chromadb/docker-compose.yml:23-24 (rede externa)
+  - services/comfyui/docker-compose.yml:16,22,38 (imagem local e UUID fixo)
+  passos:
+  - Após a decisão, ajustar os defaults em config.env.
+  - Em services/install.sh, checar pré-requisitos por serviço antes do compose up e registrar o que foi pulado.
+  - Tornar a rede externa e o UUID configuráveis, conforme a opção escolhida.
+  - Atualizar o README com os pré-requisitos restantes.
+verify:
+  teste: 'tests/bats/services_install.bats (novo), com docker stub: (a) INSTALL_CHROMADB=true sem rede externa gera aviso e segue; (b) POSTGRES_PASSWORD=change-me falha antes de qualquer compose up; (c)
+    flags false não chamam compose.'
+  criterio_de_sucesso: Em uma máquina sem seiryu, install_services termina com status 0 e registra os serviços pulados; os três casos de bats passam.
+  comandos:
+  - make test
+notas: O default mais seguro muda o comportamento do autor. Decidir com ele antes de aplicar.
+pending:
+  action: Nenhuma pendência desta task. Follow-up registrado em implementacao.followup, se houver.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false
+implementacao:
+  feito:
+  - 'config.env: INSTALL_OPENWEBUI, QDRANT, CHROMADB, POSTGRES, COMFYUI = false; COMFYUI_GPU_UUID, CHROMADB_EXTERNAL_NETWORK vazios; COMFYUI_IMAGE'
+  - 'services/comfyui/docker-compose.yml: UUID e imagem vindos do ambiente (:? obriga o UUID)'
+  - 'services/chromadb/docker-compose.yml: nome da rede vindo de CHROMADB_EXTERNAL_NETWORK (:? obriga)'
+  - 'services/install.sh: _chromadb_ready e _comfyui_ready (preflight); segredo change-me continua abortando'
+  - 'config.local.env (local, modo 600): acrescentadas as cinco flags em true, a rede do hub e o UUID da GPU. Mantém a máquina do autor igual. Nenhum segredo foi tocado.'
+  - 'README: quick start corrigido (cp para config.local.env) e seção Serviços opcionais'
+  - 'tests/bats/services_install.bats: 9 testes com docker stub'
+  verificado: services_install.bats 9/9, resolução de flags nesta máquina igual à anterior (todas em true, rede e UUID preenchidos).
+  decisao_de_escopo: O1 pediu defaults de serviços em false. Apliquei aos cinco serviços (não só ChromaDB e ComfyUI), para o config.env público ficar sem nenhum serviço ligado por padrão.

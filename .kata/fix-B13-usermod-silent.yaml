@@ -1,0 +1,50 @@
+schema_version: 1
+task: fix-B13-usermod-silent
+status: draft
+domain: coding
+done: bats verde.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: B13
+  severidade: nit
+  ordem: 22
+titulo: Tratar falha de usermod em grupos de usuário
+fit:
+  trivial: false
+  route: code-loop
+  reason: Correção de achado da revisão. Mudança cirúrgica com teste que falha antes e passa depois.
+  answered: false
+  skipped: true
+think:
+  problem: 'Tratar falha de usermod em grupos de usuário. Origem: achado B13 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Nenhum.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: false
+plano:
+  arquivos:
+  - platforms/intel/gpu.sh:15-17
+  - platforms/amd/rocm.sh:35-38
+  passos:
+  - Criar helper awb_add_user_to_group em lib/utils.sh, com fail_loud ou log_warn explícito.
+  - Usar o helper nos dois arquivos.
+verify:
+  teste: 'tests/bats/lib_utils.bats (estender): sudo stub que falha gera aviso e não é silencioso.'
+  criterio_de_sucesso: bats verde.
+  comandos:
+  - make test
+notas: ''
+pending:
+  action: Executar a task após aprovação do usuário.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false

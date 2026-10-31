@@ -1,0 +1,94 @@
+schema_version: 1
+task: fix-B6-validate-os-policy
+status: approved
+domain: coding
+done: Decisão registrada, código e README alinhados e bats verde.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: B6
+  severidade: baixa
+  ordem: 15
+titulo: Decidir a política de distros aceitas e alinhar código, mensagem e README
+fit:
+  trivial: false
+  route: plan-first
+  reason: 'Correção de achado da revisão. Exige decisão do usuário antes de qualquer edição: rota plan-first.'
+  answered: false
+  skipped: true
+think:
+  problem: 'Decidir a política de distros aceitas e alinhar código, mensagem e README. Origem: achado B6 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Nenhum.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: true
+  opcoes:
+  - 'RECOMENDADA: aceitar só Ubuntu, Pop!_OS e Linux Mint, porque os repositórios de Docker, ROCm e NVIDIA assumem Ubuntu. README ajustado.'
+  - 'Aceitar derivados Debian: ajustar a mensagem, o comentário e manter o README.'
+  status: decidido
+  analise:
+    evidencias:
+    - validate_os aceita ID=debian e qualquer ID_LIKE com debian (lib/validation.sh:25).
+    - 'O repositório Docker Ubuntu não tem bookworm: https://download.docker.com/linux/ubuntu/dists/bookworm/Release retorna 404. O repositório Debian retorna 200. install_docker_ce sempre usa o caminho
+      ubuntu (install.sh:180 e 185). Logo, Debian passa na validação e falha depois, no Docker.'
+    - NVIDIA tem repositório debian12 (200) e ubuntu2404 (200). repo.sh:23 monta só ubuntu${VERSION_ID}.
+    - Linux Mint (ID=linuxmint, ID_LIKE com ubuntu) passa na validação e cai no problema de codinome do M7 de qualquer forma.
+    - 'README.md:24 diz ''Ubuntu 22.04 ou superior (ou Debian-based)''. A mensagem de erro em validation.sh:31 diz ''Supported: Ubuntu, Pop!_OS, Linux Mint''.'
+    alternativas:
+    - id: O1
+      descricao: Restringir a Ubuntu, Pop!_OS e Linux Mint. README alinhado.
+      resolve: Falha cedo, com mensagem honesta, em vez de falhar no meio da instalação. Elimina a contradição.
+      nao_resolve: Exclui quem roda Debian puro. Hoje Debian já quebra no Docker, então a perda real é pequena.
+      custo: 'baixo: uma lista e o README'
+      reversivel: true
+      status: recomendada
+    - id: O2
+      descricao: Suportar Debian.
+      resolve: Amplia o público.
+      nao_resolve: 'Exige mapear distro em pelo menos 4 pontos: Docker (caminho por distro), NVIDIA (debian12 em vez de ubuntuXXYY), ROCm (repo.radeon por codinome, não verificado para Debian) e NPU (só
+        assets ubuntu, então ficaria pulado). Sem máquina Debian para testar.'
+      custo: médio a alto
+      reversivel: true
+      status: só se houver demanda real
+    - id: O3
+      descricao: Manter a aceitação ampla e corrigir só a mensagem.
+      resolve: A mensagem.
+      nao_resolve: 'O comportamento: Debian continua passando na validação e falhando no Docker.'
+      custo: baixo
+      reversivel: true
+      status: rejeitada
+    recomendacao: O1. Tratar Debian como item de roadmap, se houver demanda.
+    pergunta: Confirma O1 (Ubuntu, Pop!_OS e Linux Mint)? Ou prefere O2 mesmo sem máquina Debian para testar?
+  resposta: 'O1: restringir a Ubuntu, Pop!_OS e Linux Mint, com README alinhado.'
+plano:
+  arquivos:
+  - lib/validation.sh:7,12-31
+  - README.md:24
+  passos:
+  - Após a decisão, alinhar regra, mensagem, comentário e README.
+verify:
+  teste: 'tests/bats/lib_validation.bats (estender): fixture Debian puro segue a decisão tomada.'
+  criterio_de_sucesso: Decisão registrada, código e README alinhados e bats verde.
+  comandos:
+  - make test
+notas: ''
+pending:
+  action: Nenhuma pendência desta task. Follow-up registrado em implementacao.followup, se houver.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false
+implementacao:
+  feito:
+  - 'lib/validation.sh: validação só pelo ID; ID_LIKE não conta mais'
+  - 'tests/bats/lib_validation.bats: teste de ID_LIKE (elementary) passa a esperar rejeição; novos testes para Mint (aceito) e Debian puro (rejeitado)'
+  - 'README: requisito de SO atualizado'
+  verificado: lib_validation.bats passa (31 ao todo nos três arquivos alterados).
+  decisao_de_escopo: O teste de elementary contrariava a política escolhida; foi atualizado, e não contornado.

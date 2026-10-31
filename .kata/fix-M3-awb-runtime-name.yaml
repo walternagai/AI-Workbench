@@ -1,0 +1,56 @@
+schema_version: 1
+task: fix-M3-awb-runtime-name
+status: approved
+domain: coding
+done: Testes verdes; a execução com '..' não carrega install.sh (sem a marca do instalador no log).
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: M3
+  severidade: media
+  ordem: 5
+titulo: Validar o nome de runtime no awb runtime (aceita '.' e '..')
+fit:
+  trivial: false
+  route: code-loop
+  reason: Correção de achado da revisão. Mudança cirúrgica com teste que falha antes e passa depois.
+  answered: false
+  skipped: true
+think:
+  problem: 'Validar o nome de runtime no awb runtime (aceita ''.'' e ''..''). Origem: achado M3 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Nenhum.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: false
+plano:
+  arquivos:
+  - scripts/awb:102-103 (regex e safe_source)
+  passos:
+  - Trocar a regex por ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ e rejeitar '..' explicitamente.
+  - Antes do safe_source, exigir [[ -f runtimes/<nome>/install.sh ]] dentro do AWB_ROOT.
+  - Mensagem de erro clara quando o nome for inválido.
+verify:
+  teste: 'tests/bats/awb_runtime_name.bats (novo), com HOME temporário: ''awb runtime install ..'' e ''.'' saem != 0 sem executar o instalador; ''llama.cpp'' passa a validação.'
+  criterio_de_sucesso: Testes verdes; a execução com '..' não carrega install.sh (sem a marca do instalador no log).
+  comandos:
+  - make test
+notas: ''
+pending:
+  action: Nenhuma pendência desta task.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false
+implementacao:
+  feito:
+  - 'scripts/awb: regex exige primeiro caractere alfanumérico e rejeita ''..''; checagem de existência de runtimes/<nome>/install.sh antes do safe_source'
+  - 'tests/bats/awb_runtime_name.bats: 4 testes, todos de rejeição'
+  vermelho_antes: 'Não rodado contra o código antigo: lá, ''..'' carregaria o install.sh e executaria o instalador. A falha foi reproduzida antes, lendo a regex e o caminho runtimes/../install.sh.'
+  verificado: awb_runtime_name.bats 4/4 verde, sem executar o instalador.

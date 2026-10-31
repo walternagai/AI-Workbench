@@ -1,0 +1,57 @@
+schema_version: 1
+task: fix-M2-doctor-errexit
+status: approved
+domain: coding
+done: O teste passa; doctor.sh chega ao fim e grava os reports mesmo com atribuição de comando que falha (probe).
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: M2
+  severidade: media
+  ordem: 4
+titulo: Impedir que detect.sh altere as opções de shell do doctor
+fit:
+  trivial: false
+  route: code-loop
+  reason: Correção de achado da revisão. Mudança cirúrgica com teste que falha antes e passa depois.
+  answered: false
+  skipped: true
+think:
+  problem: 'Impedir que detect.sh altere as opções de shell do doctor. Origem: achado M2 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Nenhum.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: false
+plano:
+  arquivos:
+  - detect.sh:9 (set -euo pipefail no topo)
+  - doctor.sh:8,28 (source de detect.sh)
+  passos:
+  - Mover o set -euo pipefail de detect.sh para o ramo de execução direta (if BASH_SOURCE == $0).
+  - Verificar que install.sh, update.sh e scripts/awb continuam com -e por conta própria.
+  - Confirmar que os módulos sourceados por doctor.sh não dependem do -e herdado.
+verify:
+  teste: 'tests/bats/doctor_options.bats (novo): bash -c ''set -uo pipefail; source detect.sh'' não pode deixar -e em $-.'
+  criterio_de_sucesso: O teste passa; doctor.sh chega ao fim e grava os reports mesmo com atribuição de comando que falha (probe).
+  comandos:
+  - make test
+notas: ''
+pending:
+  action: Nenhuma pendência desta task.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false
+implementacao:
+  feito:
+  - 'detect.sh: set -euo pipefail removido do topo e aplicado só no ramo de execução direta'
+  - 'tests/bats/doctor_options.bats: 3 testes'
+  vermelho_antes: No código antigo, 3 de 3 falham (o source ativa -e no shell do chamador).
+  verificado: doctor_options.bats 3/3 verde.

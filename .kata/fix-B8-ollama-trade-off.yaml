@@ -1,0 +1,90 @@
+schema_version: 1
+task: fix-B8-ollama-trade-off
+status: approved
+domain: coding
+done: Trade-off documentado, ou checksum verificado e aplicado.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: B8
+  severidade: baixa
+  ordem: 17
+titulo: Documentar o risco do instalador do Ollama, ou exigir checksum
+fit:
+  trivial: false
+  route: plan-first
+  reason: 'Correção de achado da revisão. Exige decisão do usuário antes de qualquer edição: rota plan-first.'
+  answered: false
+  skipped: true
+think:
+  problem: 'Documentar o risco do instalador do Ollama, ou exigir checksum. Origem: achado B8 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Nenhum.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: true
+  opcoes:
+  - 'RECOMENDADA agora: documentar o trade-off no README e no comentário do runtime, sem mudar o comportamento.'
+  - 'Exigir checksum pinado: só possível se o Ollama publicar um. Verificar antes.'
+  status: decidido
+  analise:
+    evidencias:
+    - 'O install.sh oficial do Ollama não contém verificação de checksum ou assinatura: grep por sha256, checksum, gpg e signature não retorna nada.'
+    - A release latest publica sha256sum.txt com ollama-linux-amd64.tar.zst e os demais assets. Verificado.
+    - O install.sh oficial aceita OLLAMA_VERSION, que vira o parâmetro ?version= do download (install.sh:42). Permite pinar a versão.
+    - Nosso _ollama_download só verifica o shebang (runtimes/ollama/install.sh:32) antes de executar o script com sh.
+    alternativas:
+    - id: O1
+      descricao: Documentar o trade-off no README e no comentário do runtime.
+      resolve: Torna o risco explícito. Custo zero.
+      nao_resolve: Integridade. O download continua sem verificação.
+      custo: zero
+      reversivel: true
+      status: recomendada agora
+    - id: O2
+      descricao: Verificar o tarball contra o sha256sum.txt do mesmo release.
+      resolve: Corrupção e download parcial.
+      nao_resolve: 'Comprometimento do release: o hash vem da mesma origem. Exige reimplementar a instalação do install.sh oficial, com drift.'
+      custo: alto
+      reversivel: true
+      status: não recomendada
+    - id: O3
+      descricao: Fixar AWB_OLLAMA_VERSION e AWB_OLLAMA_SHA256 em config.env, verificados antes de executar.
+      resolve: Âncora de confiança no repositório, revisável em diff. Protege contra troca do asset.
+      nao_resolve: O hash só vale para a versão em que foi tirado. Cada release exige atualizar o pin.
+      custo: médio e contínuo; awb runtime update passa a depender do pin
+      reversivel: true
+      status: se a política exigir integridade
+    recomendacao: O1 agora. O3 se o projeto quiser integridade verificável.
+    pergunta: Aceita O1 agora? Ou quer O3? Se O3, qual versão do Ollama fixar?
+  resposta: 'O1: documentar o trade-off agora, sem mudar o comportamento.'
+plano:
+  arquivos:
+  - runtimes/ollama/install.sh:1-12,17-38
+  - README.md (seção de segurança, nova)
+  passos:
+  - Após a decisão, atualizar o comentário e o README.
+verify:
+  teste: 'Teste de grep: o README menciona o trade-off do instalador do Ollama.'
+  criterio_de_sucesso: Trade-off documentado, ou checksum verificado e aplicado.
+  comandos:
+  - make test
+notas: ''
+pending:
+  action: Nenhuma pendência desta task. Follow-up registrado em implementacao.followup, se houver.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false
+implementacao:
+  feito:
+  - 'runtimes/ollama/install.sh: comentário reescrito; deixa claro que o shebang não é verificação de integridade'
+  - 'README: seção Segurança e trade-offs com a alternativa O3 descrita'
+  - 'tests/bats/ollama_trade_off.bats: 3 testes de documentação'
+  verificado: ollama_trade_off.bats 3/3; shellcheck do arquivo limpo.

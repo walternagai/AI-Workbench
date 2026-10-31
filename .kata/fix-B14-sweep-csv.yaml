@@ -1,0 +1,51 @@
+schema_version: 1
+task: fix-B14-sweep-csv
+status: draft
+domain: coding
+done: bats verde; o arquivo está rastreado ou a decisão de não rastrear está registrada.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: B14
+  severidade: baixa
+  ordem: 23
+titulo: Corrigir -ngl e o run_at por modelo no sweep_csv.sh
+fit:
+  trivial: false
+  route: code-loop
+  reason: Correção de achado da revisão. Mudança cirúrgica com teste que falha antes e passa depois.
+  answered: false
+  skipped: true
+think:
+  problem: 'Corrigir -ngl e o run_at por modelo no sweep_csv.sh. Origem: achado B14 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Arquivo apareceu no repositório durante a revisão, sem autoria deste agente.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: false
+plano:
+  arquivos:
+  - benchmarks/llm/sweep_csv.sh:2-11,26,28,35 (arquivo não rastreado)
+  passos:
+  - Trocar o uso para -l, que é o que o getopts aceita (ou aceitar -ngl com pré-processamento).
+  - Gravar run_at por modelo, em vez de um instante único para o sweep.
+  - Decidir com o usuário se o arquivo entra no repositório.
+verify:
+  teste: 'tests/bats/sweep_csv.bats (novo) com llama-bench stub: -l 0,99 passa; -ngl dá erro claro; CSV tem uma linha de cabeçalho.'
+  criterio_de_sucesso: bats verde; o arquivo está rastreado ou a decisão de não rastrear está registrada.
+  comandos:
+  - make test
+notas: 'Arquivo apareceu no repositório durante a revisão, sem autoria deste agente. ATUALIZAÇÃO: o arquivo foi substituído por benchmarks/llm/sweep.sh no commit b2afb40 (rastreado). O getopts continua
+  aceitando só -l (sweep.sh:20), então o problema de -ngl permanece nesse arquivo.'
+pending:
+  action: Executar a task após aprovação do usuário.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false

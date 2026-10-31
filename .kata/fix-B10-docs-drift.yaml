@@ -1,0 +1,57 @@
+schema_version: 1
+task: fix-B10-docs-drift
+status: draft
+domain: coding
+done: bats verde.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: B10
+  severidade: baixa
+  ordem: 19
+titulo: Corrigir a documentação divergente
+fit:
+  trivial: false
+  route: code-loop
+  reason: Correção de achado da revisão. Mudança cirúrgica com teste que falha antes e passa depois.
+  answered: false
+  skipped: true
+think:
+  problem: 'Corrigir a documentação divergente. Origem: achado B10 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: A rotação dos segredos do histórico é ação do usuário; esta task só atualiza o texto.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: false
+plano:
+  arquivos:
+  - README.md:35 (cp config.env config.env.local)
+  - README.md:51,53,134 (gemma3-e2b e gemma-3n)
+  - README.md (árvore de arquitetura sem comfyui)
+  - CLAUDE.md:28,164-168
+  - AGENTS.md:21
+  - config.env:45-46 (Qdrant 'localhost')
+  passos:
+  - 'README: trocar o cp por config.local.env a partir de config.local.env.example.'
+  - 'README: trocar os exemplos para gemma4-e2b e incluir comfyui na árvore.'
+  - 'CLAUDE.md: o texto dos segredos passa a dizer ''histórico''; confirmar a rotação.'
+  - 'AGENTS.md e CLAUDE.md: make model-install com gemma4-e2b.'
+  - 'config.env: Qdrant escuta em 172.17.0.1, não em localhost.'
+verify:
+  teste: 'tests/bats/docs_consistency.bats (novo): README sem ''config.env.local''; exemplos usam DEFAULT_MODEL; comentário do config.env cita 172.17.0.1.'
+  criterio_de_sucesso: bats verde.
+  comandos:
+  - make test
+notas: A rotação dos segredos do histórico é ação do usuário; esta task só atualiza o texto.
+pending:
+  action: Executar a task após aprovação do usuário.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false

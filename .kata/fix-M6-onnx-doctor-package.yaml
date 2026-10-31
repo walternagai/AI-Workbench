@@ -1,0 +1,59 @@
+schema_version: 1
+task: fix-M6-onnx-doctor-package
+status: approved
+domain: coding
+done: Testes verdes; grep não encontra onnxruntime-openvino fixo fora do helper.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: M6
+  severidade: media
+  ordem: 8
+titulo: Doctor checar o pacote ONNX correto por plataforma
+fit:
+  trivial: false
+  route: code-loop
+  reason: Correção de achado da revisão. Mudança cirúrgica com teste que falha antes e passa depois.
+  answered: false
+  skipped: true
+think:
+  problem: 'Doctor checar o pacote ONNX correto por plataforma. Origem: achado M6 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Nenhum.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: false
+plano:
+  arquivos:
+  - doctor.sh:263-266
+  - runtimes/onnxruntime/install.sh:7-13
+  - lib/utils.sh (novo helper)
+  passos:
+  - Mover _onnxruntime_package para lib/utils.sh como onnxruntime_package_for <alvo>.
+  - runtimes/onnxruntime/install.sh passa a usar o helper.
+  - doctor.sh checa o pacote do PLATFORM_TARGET, sem nome fixo.
+verify:
+  teste: 'tests/bats/onnxruntime_package.bats (novo): nvidia -> onnxruntime-gpu, intel -> onnxruntime-openvino, cpu/amd -> onnxruntime.'
+  criterio_de_sucesso: Testes verdes; grep não encontra onnxruntime-openvino fixo fora do helper.
+  comandos:
+  - make test
+notas: ''
+pending:
+  action: Nenhuma pendência desta task.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false
+implementacao:
+  feito:
+  - 'lib/utils.sh: onnxruntime_package_for <alvo>, fonte única'
+  - 'runtimes/onnxruntime/install.sh: usa o helper; função local removida'
+  - 'doctor.sh: checa o pacote do PLATFORM_TARGET'
+  vermelho_antes: 'Código antigo: 5 de 5 falham.'
+  verificado: onnxruntime_package.bats 5/5 verde.

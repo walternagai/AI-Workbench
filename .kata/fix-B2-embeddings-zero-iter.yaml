@@ -1,0 +1,48 @@
+schema_version: 1
+task: fix-B2-embeddings-zero-iter
+status: draft
+domain: coding
+done: pytest verde e cobertura >= 80%.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: B2
+  severidade: baixa
+  ordem: 11
+titulo: Rejeitar --iterations 0 em bench_embeddings.py
+fit:
+  trivial: false
+  route: code-loop
+  reason: Correção de achado da revisão. Mudança cirúrgica com teste que falha antes e passa depois.
+  answered: false
+  skipped: true
+think:
+  problem: 'Rejeitar --iterations 0 em bench_embeddings.py. Origem: achado B2 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Nenhum.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: false
+plano:
+  arquivos:
+  - benchmarks/embeddings/bench_embeddings.py:33,56 (parse_args e format_report)
+  passos:
+  - Criar tipo argparse positive_int e usar em --iterations e --batch-size.
+verify:
+  teste: 'tests/test_bench_embeddings.py: parse_args([''--iterations'',''0'']) deve levantar SystemExit.'
+  criterio_de_sucesso: pytest verde e cobertura >= 80%.
+  comandos:
+  - make test
+notas: ''
+pending:
+  action: Executar a task após aprovação do usuário.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false

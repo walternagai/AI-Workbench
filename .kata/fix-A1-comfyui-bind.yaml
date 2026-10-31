@@ -1,0 +1,107 @@
+schema_version: 1
+task: fix-A1-comfyui-bind
+status: approved
+domain: coding
+done: docker compose config mostra a publicação no IP decidido; ss -ltn não mostra listener em 0.0.0.0:7860; bats verde.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: A1
+  severidade: alta
+  ordem: 1
+titulo: Restringir a publicação do ComfyUI e alinhar a documentação
+fit:
+  trivial: false
+  route: plan-first
+  reason: 'Correção de achado da revisão. Exige decisão do usuário antes de qualquer edição: rota plan-first.'
+  answered: false
+  skipped: true
+think:
+  problem: 'Restringir a publicação do ComfyUI e alinhar a documentação. Origem: achado A1 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Antes de aplicar, validar com o hub que o acesso via host.docker.internal continua funcionando.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: true
+  opcoes:
+  - 'Publicar em 172.17.0.1, como o qdrant, sem mudar a auth. RECOMENDADA: o host-gateway do hub alcança esse IP e a documentação passa a bater com o comportamento.'
+  - 'Publicar em 127.0.0.1. NÃO funciona para o hub: host.docker.internal resolve para 172.17.0.1, não para o loopback.'
+  - Manter 0.0.0.0 e ligar WEB_ENABLE_AUTH. Exige credencial no fluxo do hub; muda o comportamento.
+  status: decidido
+  analise:
+    evidencias:
+    - 172.17.0.1 é o gateway do docker0 (ip -4 addr show docker0). Dentro de container, host-gateway resolve para 172.17.0.1 (getent em alpine:3).
+    - 'Teste real: servidor ligado em 172.17.0.1:17861 é alcançável por container via http://host.docker.internal:17861. Servidor ligado em 127.0.0.1:17860 NÃO é alcançável pelo mesmo caminho.'
+    - O hub chama o ComfyUI por http://host.docker.internal:7860 (ninja-apps/seiryu docker-compose.yml:137, KAGE_COMFYUI_ORIGIN; nginx.conf:456-480). Qualquer bind diferente de 172.17.0.1 ou 0.0.0.0 quebra
+      o hub.
+    - 0.0.0.0 publica para a LAN. Docker escreve regras no iptables e contorna o UFW (comportamento conhecido do Docker; não reproduzido nesta máquina).
+    alternativas:
+    - id: O1
+      descricao: Publicar em 172.17.0.1, como o qdrant.
+      resolve: Exposição à LAN. O hub continua funcionando (testado).
+      nao_resolve: Qualquer container no host alcança o ComfyUI sem auth, porque host-gateway aponta para o mesmo IP em todas as redes default.
+      custo: 'baixo: uma linha e o comentário'
+      reversivel: true
+      status: recomendada agora
+    - id: O2
+      descricao: Publicar em 127.0.0.1.
+      resolve: Exposição à LAN.
+      nao_resolve: 'Quebra o hub: testado, o container não alcança o loopback do host.'
+      custo: '-'
+      reversivel: true
+      status: rejeitada (testada)
+    - id: O3
+      descricao: Manter 0.0.0.0 e ligar auth no ComfyUI.
+      resolve: Exige credencial mesmo em acesso direto.
+      nao_resolve: 'Não verificado se a imagem local suporta auth nativa: WEB_ENABLE_AUTH não tem documentação no repositório. Enquanto isso, a LAN continua exposta.'
+      custo: 'médio: muda o fluxo do hub'
+      reversivel: true
+      status: adiada até verificar a imagem
+    - id: O4
+      descricao: ComfyUI na rede seiryu-network, sem porta publicada no host. O hub resolve awb-comfyui por DNS, como já faz com awb-chromadb.
+      resolve: 'Isolamento mais forte: só containers do hub alcançam o serviço.'
+      nao_resolve: Nada imediatamente. Exige mudar nginx e compose nos dois repositórios.
+      custo: 'alto: coordenação entre repositórios'
+      reversivel: true
+      status: evolução futura
+    recomendacao: O1 agora, com o risco residual declarado (containers locais sem auth). Abrir O4 como evolução no repositório do hub.
+    pergunta: Aceita O1 com esse risco residual? Quer O4 registrado como follow-up?
+  resposta: 'O1 aceita: publicar em 172.17.0.1, com o risco residual de containers locais sem auth. O4 registrado como follow-up no repositório do hub.'
+plano:
+  arquivos:
+  - services/comfyui/docker-compose.yml:20 (publicação de porta)
+  - services/comfyui/docker-compose.yml:24 (CLI_ARGS --listen 0.0.0.0, avaliar)
+  - services/comfyui/docker-compose.yml:27 (WEB_ENABLE_AUTH=false)
+  - config.env:67-70 (comentário que promete localhost)
+  - CLAUDE.md (seção Docker services)
+  passos:
+  - Após a decisão, trocar a publicação para o IP escolhido.
+  - Corrigir o comentário do config.env para descrever o bind real.
+  - Atualizar CLAUDE.md com o mesmo bind.
+  - Validar com docker compose config que a porta publicada é a esperada.
+verify:
+  teste: 'tests/bats/comfyui_compose.bats (novo): lê o compose como texto e exige que a publicação não comece com 0.0.0.0. Hermético.'
+  criterio_de_sucesso: docker compose config mostra a publicação no IP decidido; ss -ltn não mostra listener em 0.0.0.0:7860; bats verde.
+  comandos:
+  - make test
+notas: Antes de aplicar, validar com o hub que o acesso via host.docker.internal continua funcionando.
+pending:
+  action: Nenhuma pendência desta task. Follow-up registrado em implementacao.followup, se houver.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false
+implementacao:
+  feito:
+  - 'services/comfyui/docker-compose.yml: publicação em 172.17.0.1; comentário de bind e de risco reescrito'
+  - 'config.env: comentários de bind atualizados (Qdrant e ComfyUI em 172.17.0.1)'
+  - 'CLAUDE.md: seção Docker services atualizada'
+  - 'README: seção Segurança e trade-offs com o risco residual'
+  verificado: 'docker compose config (com as variáveis reais): host_ip 172.17.0.1, porta 7860. Alcance do container a 172.17.0.1 testado antes da mudança.'
+  followup: 'O4 (ComfyUI na seiryu-network, sem porta no host) não aberto nesta task: mudança entre dois repositórios.'

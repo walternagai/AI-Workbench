@@ -1,0 +1,49 @@
+schema_version: 1
+task: fix-B4-npu-success-message
+status: draft
+domain: coding
+done: bats verde.
+kata_version: 0.10.0
+base_commit: b2afb407c043029dc5edeb6f0c8f6f13f673bd79
+origem:
+  relatorio: revisao-completa-repo
+  achado: B4
+  severidade: baixa
+  ordem: 13
+titulo: Não registrar sucesso do NPU quando o dpkg falha
+fit:
+  trivial: false
+  route: code-loop
+  reason: Correção de achado da revisão. Mudança cirúrgica com teste que falha antes e passa depois.
+  answered: false
+  skipped: true
+think:
+  problem: 'Não registrar sucesso do NPU quando o dpkg falha. Origem: achado B4 de revisao-completa-repo.'
+  assumptions:
+  - Nenhum código é alterado até a task ser aprovada.
+  - 'Testes novos são herméticos: HOME e AWB_ROOT temporários, stubs para comandos do host.'
+  alternatives:
+  - 'Corrigir sem teste: descartada, o achado precisa de regressão.'
+  unknowns: Nenhum.
+  answered: false
+  skipped: true
+decisao:
+  necessaria: false
+plano:
+  arquivos:
+  - platforms/intel/npu.sh:117-120
+  passos:
+  - Checar o status do dpkg. Sucesso só com status 0.
+  - Em falha, log_warn com o que falta para o NPU funcionar.
+verify:
+  teste: 'tests/bats/intel_npu.bats (existente, estender): dpkg stub falhando não pode imprimir a linha de sucesso.'
+  criterio_de_sucesso: bats verde.
+  comandos:
+  - make test
+notas: ''
+pending:
+  action: Executar a task após aprovação do usuário.
+  documented: true
+auth:
+  action_taken: false
+  authorized: false
