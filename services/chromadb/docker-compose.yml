@@ -21,7 +21,8 @@ services:
 networks:
   seiryu-network:
     external: true
-    name: seiryu_seiryu-network
+    # Rede do hub. Valor pessoal: CHROMADB_EXTERNAL_NETWORK em config.local.env.
+    name: ${CHROMADB_EXTERNAL_NETWORK:?defina CHROMADB_EXTERNAL_NETWORK em config.local.env}
 
 volumes:
   chromadb_data:

@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # runtimes/ollama/install.sh — installs Ollama via the official install script.
 #
-# Security note: downloads the installer to a temp file, verifies it looks
-# like a shell script (starts with #! shebang), and only then executes it.
-# This avoids the "curl | sh" anti-pattern (partial download execution,
-# no audit trail, MITM risk without verification).
+# Security note: the installer is downloaded to a temp file, checked for a
+# shell shebang, and then run with sh. That is NOT an integrity check. The
+# script arrives over HTTPS and runs as the current user (sudo is used
+# internally), and neither it nor this wrapper verifies a checksum or a
+# signature. The shebang check only blocks an HTML error page from being run.
+# The accepted trade-off and the alternatives are in README, "Segurança e
+# trade-offs".
 #
 # Note (per Walter's hardware notes): on Intel iGPUs without a Vulkan backend
 # in Ollama's engine, this runs CPU-only. NVIDIA/AMD get GPU acceleration

@@ -42,10 +42,26 @@ _fake_os_release() {
     [ "$status" -eq 0 ]
 }
 
-@test "validate_os: accepts a derivative via ID_LIKE rather than ID" {
-    _fake_os_release 'ID=elementary' 'ID_LIKE="ubuntu"' 'PRETTY_NAME="elementary OS 7"'
+@test "validate_os: accepts Linux Mint, which identifies as ID=linuxmint" {
+    _fake_os_release 'ID=linuxmint' 'ID_LIKE="ubuntu debian"' 'PRETTY_NAME="Linux Mint 22.1"'
     run validate_os
     [ "$status" -eq 0 ]
+}
+
+@test "validate_os: rejects a derivative that matches only via ID_LIKE" {
+    # Policy (B6): only the three documented distros. An Ubuntu derivative
+    # passes an ID_LIKE check but not the repository paths this installer builds.
+    _fake_os_release 'ID=elementary' 'ID_LIKE="ubuntu"' 'PRETTY_NAME="elementary OS 7"'
+    run validate_os
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Unsupported distribution"* ]]
+}
+
+@test "validate_os: rejects plain Debian, which the Docker repo path does not serve" {
+    _fake_os_release 'ID=debian' 'PRETTY_NAME="Debian GNU/Linux 12 (bookworm)"'
+    run validate_os
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Unsupported distribution"* ]]
 }
 
 @test "validate_os: rejects an unsupported distro" {

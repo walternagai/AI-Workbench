@@ -83,6 +83,8 @@ Bash unit tests (no hardware, network or package manager needed) live under
 | `models_catalog.bats` | catalog shape, and agreement between the catalogs, `model_catalog_list` and `config.env` |
 | `install_sections.bats` | section wiring — a section must agree across its `RUN_*` default, `--only`, `--skip`, `main()`, `--help` and the Makefile |
 | `llamacpp_service.bats` | the generated systemd unit, asserted on the bytes written to a throwaway `$HOME` |
+| `services_install.bats` | service gating: defaults off, skip-with-warning for external prerequisites, abort for secrets and missing GPU UUID (docker is stubbed) |
+| `ollama_trade_off.bats` | the Ollama installer trade-off is stated in the runtime comment and in README |
 | `awb_usage.bats` | `scripts/awb`'s help text — it is the script's own header comment printed back, so nothing else notices when the two drift; also asserts documented commands and `case` branches agree |
 
 Generated config (systemd units, JSON reports) is invisible to shellcheck,
@@ -171,14 +173,22 @@ treat those two as needing rotation + a move to `config.local.env`.
 `services/install.sh`): openwebui, qdrant, chromadb, postgres, comfyui. Their
 network exposure is deliberately *not* uniform, and each compose file explains
 why in comments — check before "normalizing" them:
+- Every service flag defaults to `false` in `config.env`. Turning one on, and
+  every personal value (`COMFYUI_GPU_UUID`, `CHROMADB_EXTERNAL_NETWORK`), goes in
+  `config.local.env`. `services/install.sh` skips a service with a warning when
+  its external prerequisite is missing (hub network, local image). A
+  `change-me` secret and a missing GPU UUID still abort.
 - chromadb/postgres bind to `SERVICES_BIND_HOST` (default `127.0.0.1`);
-  chromadb additionally joins the external `seiryu_seiryu-network` (hub in a
-  sibling repo, `~/dev/ninja-apps/seiryu`) declaratively.
+  chromadb joins the external network named by `CHROMADB_EXTERNAL_NETWORK`
+  (hub in a sibling repo, `~/dev/ninja-apps/seiryu`) declaratively.
 - qdrant ignores `SERVICES_BIND_HOST` and binds to the docker gateway
   `172.17.0.1`, so hub containers can reach it without LAN exposure.
-- comfyui is pinned to a dedicated GPU (`NVIDIA_VISIBLE_DEVICES=1`), bound
-  for `host.docker.internal:7860`, with auth off because access goes through
-  the Seiryu hub.
+- comfyui takes its GPU from `COMFYUI_GPU_UUID` and its image from
+  `COMFYUI_IMAGE` (built locally, not from a registry). It is published only on
+  the docker gateway `172.17.0.1`, reachable from the hub via
+  `host.docker.internal:7860` but not from the LAN. Auth is off because access
+  goes through the Seiryu hub. Local containers can still reach the port: that
+  is an accepted residual risk.
 
 **Reports & logs**: `reports/hardware.json`, `reports/doctor.{json,md}`,
 `reports/install_report.md` are generated artifacts (gitignored); `logs/installation.log`

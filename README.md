@@ -16,12 +16,14 @@ observável.
 - [Plataformas suportadas](#plataformas‑suportadas)
 - [Modelos](#modelos)
 - [Diagnóstico](#diagnóstico)
+- [Serviços opcionais](#serviços-opcionais)
+- [Segurança e trade-offs](#segurança-e-trade-offs)
 - [Roadmap](#roadmap)
 - [Licença](#licença)
 
 ## Requisitos de sistema
 
-- Sistema operacional: Ubuntu 22.04 LTS ou superior (ou Debian‑based).
+- Sistema operacional: Ubuntu 22.04 LTS ou superior, Pop!_OS ou Linux Mint. Debian puro e outras derivadas não são suportados: o instalador valida pelo ID da distro e monta caminhos de repositório Ubuntu.
 - Pacotes base: `git`, `curl`, `wget`, `bash`, `apt`, `make`.
 - Memória RAM recomendada: ≥ 8 GB (16 GB+ para modelos > 7 B).
 - Espaço em disco: ≥ 20 GB livre para downloads e models.
@@ -32,7 +34,7 @@ observável.
 ```bash
 git clone <repo-url> AI-Workbench
 cd AI-Workbench
-cp config.env config.env.local   # opcional: revise as flags antes de instalar
+cp config.local.env.example config.local.env   # segredos e serviços; depois: chmod 600 config.local.env
 ./install.sh
 ```
 
@@ -142,6 +144,33 @@ awb model install custom <hf_repo_id> <filename>
 Segurança, Recursos, Modelos) e grava `reports/doctor.json` +
 `reports/doctor.md`. O total exato varia conforme o hardware detectado, já que
 as checagens por fabricante são mutuamente exclusivas.
+
+## Serviços opcionais
+
+Todos os serviços vêm desligados em `config.env`. Para ligar um, defina a flag em
+`config.local.env` (modo 600, ver `config.local.env.example`):
+
+| Serviço | Flag | Pré-requisito |
+|---|---|---|
+| Open WebUI | `INSTALL_OPENWEBUI` | `WEBUI_SECRET_KEY` com valor real |
+| Qdrant | `INSTALL_QDRANT` | nenhum; publicado em `172.17.0.1` |
+| ChromaDB | `INSTALL_CHROMADB` | `CHROMADB_EXTERNAL_NETWORK`, uma rede Docker existente. Sem ela, o serviço é pulado com aviso |
+| Postgres | `INSTALL_POSTGRES` | `POSTGRES_PASSWORD` com valor real |
+| ComfyUI | `INSTALL_COMFYUI` | `COMFYUI_GPU_UUID`, e a imagem `COMFYUI_IMAGE` construída localmente a partir de `services/comfyui/Dockerfile`. Sem a imagem, o serviço é pulado com aviso |
+
+Um segredo que ainda é o placeholder `change-me` aborta a instalação, de propósito:
+nunca se sobe um serviço com senha pública. Dependências externas ausentes (rede,
+imagem) pulam o serviço com aviso, e o aviso aparece no log.
+
+## Segurança e trade-offs
+
+- **Instalador do Ollama sem verificação de integridade.** O `install.sh` oficial
+  do Ollama é baixado por HTTPS, checado apenas pelo shebang e executado com `sh`.
+  Nem o script oficial nem este instalador conferem checksum ou assinatura. A
+  release publica `sha256sum.txt`, mas o hash viria da mesma origem do download,
+  então verificá-lo só protege contra corrupção. Alternativa para quem precisar de
+  integridade: fixar `OLLAMA_VERSION` e o SHA256 do asset em `config.env`, conferindo
+  antes de executar. Não adotada por padrão, porque cada release exigiria atualizar o pin.
 
 ## Roadmap
 

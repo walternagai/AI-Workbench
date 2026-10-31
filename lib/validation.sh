@@ -9,6 +9,10 @@ AWB_SUPPORTED_DISTROS=("ubuntu" "pop" "linuxmint")
 # validate_os — fail-loud if running on an unsupported distro.
 # Portability principle: v1.0 targets Ubuntu, Pop!_OS and Linux Mint
 # explicitly; anything else is refused rather than silently attempted.
+# Matched on ID only. ID_LIKE would also admit Debian and every Ubuntu
+# derivative, but the Docker, ROCm and NVIDIA repository paths this installer
+# builds assume Ubuntu, so those hosts would pass validation and then fail
+# during installation.
 validate_os() {
     # AWB_OS_RELEASE exists so the unsupported-distro path is reachable from a
     # unit test without a container: nothing else should ever override it.
@@ -16,13 +20,12 @@ validate_os() {
     [[ -f "$osrel" ]] || fail_loud "Cannot detect OS: ${osrel} not found."
     # Parse os-release with awk instead of sourcing it,
     # for the same security and isolation reasons as detect.sh.
-    local id like pretty
+    local id pretty
     id=$(awk -F= '/^ID=/          {gsub(/"/,"",$2); print $2; exit}' "$osrel") || id="unknown"
-    like=$(awk -F= '/^ID_LIKE=/    {gsub(/"/,"",$2); print $2; exit}' "$osrel") || like=""
     pretty=$(awk -F= '/^PRETTY_NAME=/ {gsub(/"/,"",$2); print $2; exit}' "$osrel") || pretty="$id"
     local supported=false
     for d in "${AWB_SUPPORTED_DISTROS[@]}"; do
-        if [[ "$id" == "$d" || "$like" == *"$d"* || "$like" == *"debian"* || "$id" == "debian" ]]; then
+        if [[ "$id" == "$d" ]]; then
             supported=true
             break
         fi

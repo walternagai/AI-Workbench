@@ -1,10 +1,12 @@
 # services/comfyui/docker-compose.yml
 # ComfyUI — geração de imagens local (backend headless do Kage, no Seiryu).
-# GPU dedicada: RTX 5060 Ti (UUID: GPU-9a54cc77-6d19-6a9d-ecb3-629d823b11b7),
-# via NVIDIA_VISIBLE_DEVICES — a 4070 Ti SUPER continua dedicada ao Ollama.
-# Bind em 0.0.0.0: o Seiryu alcança via host.docker.internal:7860 (o compose
-# do seiryu já declara esse extra_host para TTS/Ollama). O acesso externo é
-# filtrado pelo auth_request do nginx do hub — nunca exposto direto.
+# GPU: COMFYUI_GPU_UUID (config.local.env). Sem ela o compose não sobe, e
+# services/install.sh checa antes para dar uma mensagem clara.
+# Publicado só no gateway docker0 (172.17.0.1). O Seiryu alcança via
+# host.docker.internal:7860, que o host-gateway resolve para esse IP. Não é
+# acessível pela LAN: o Docker publica direto no iptables, então o bind é o que
+# protege, não o UFW. Auth desligada: o acesso de fora passa pelo auth_request
+# do nginx do hub. Containers locais ainda alcançam a porta (risco residual).
 services:
   comfyui:
     # Imagem construída em camadas: base 0.42.1 (torch 2.7.1+cu128) com as
@@ -13,14 +15,16 @@ services:
     # Reconstruir com:
     #   docker build --target comfyui-0.43 -t seiryu/comfyui:0.43.2-cu128-restore services/comfyui/
     # Rollback: apontar para seiryu/comfyui:0.42.1-cu128-restore e recriar.
-    image: seiryu/comfyui:0.43.2-cu128-restore
+    image: ${COMFYUI_IMAGE:-seiryu/comfyui:0.43.2-cu128-restore}
     container_name: awb-comfyui
     restart: unless-stopped
     ports:
-      - "0.0.0.0:${COMFYUI_PORT:-7860}:7860"
+      - "172.17.0.1:${COMFYUI_PORT:-7860}:7860"
     environment:
-      - NVIDIA_VISIBLE_DEVICES=GPU-9a54cc77-6d19-6a9d-ecb3-629d823b11b7
+      - NVIDIA_VISIBLE_DEVICES=${COMFYUI_GPU_UUID:?defina COMFYUI_GPU_UUID em config.local.env}
       - COMFYUI_PORT=7860
+      # Dentro do container precisa escutar em 0.0.0.0 para o port mapping
+      # funcionar. A restrição de rede é o bind de ports acima.
       - CLI_ARGS=--listen 0.0.0.0
       # Auth desabilitada: o acesso é via hub do seiryu (auth_request do
       # nginx), que já exige sessão válida antes de chegar ao proxy.
@@ -35,7 +39,7 @@ services:
           devices:
             - driver: nvidia
               device_ids:
-                - GPU-9a54cc77-6d19-6a9d-ecb3-629d823b11b7
+                - ${COMFYUI_GPU_UUID:?defina COMFYUI_GPU_UUID em config.local.env}
               capabilities: [gpu]
 
 volumes:
